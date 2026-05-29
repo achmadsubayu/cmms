@@ -25,7 +25,7 @@
         body { display: flex; height: 100vh; background-color: var(--primary-bg); overflow: hidden; }
 
         /* Sidebar */
-        .sidebar { width: 270px; background-color: var(--sidebar-bg); color: var(--text-light); display: flex; flex-direction: column; transition: all 0.3s; z-index: 100;}
+        .sidebar { width: 270px; background-color: var(--sidebar-bg); color: var(--text-light); display: flex; flex-direction: column; transition: all 0.3s ease; z-index: 1000;}
         .sidebar-header { padding: 20px; font-size: 1.5em; font-weight: bold; text-align: center; border-bottom: 1px solid #334155; letter-spacing: 1px; color: #60a5fa;}
         .nav-links { list-style: none; padding: 20px 0; flex: 1; overflow-y: auto; }
         .nav-links li { padding: 15px 25px; transition: 0.2s; cursor: pointer; display: flex; align-items: center; gap: 15px; position: relative; }
@@ -40,14 +40,17 @@
         .sidebar-badge { position: absolute; right: 20px; }
 
         /* Main Area */
-        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; }
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; position: relative;}
         .topbar { background-color: var(--card-bg); height: 70px; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-shrink: 0; position: sticky; top: 0; z-index: 50;}
-        .topbar-left { font-size: 1.2em; font-weight: 600; color: var(--text-dark); }
+        .topbar-left { font-size: 1.2em; font-weight: 600; color: var(--text-dark); display: flex; align-items: center; gap: 15px;}
         .user-profile { display: flex; align-items: center; gap: 15px; color: var(--text-dark); }
         .user-profile i { font-size: 1.5em; color: #94a3b8; }
         .user-info { display: flex; flex-direction: column; font-size: 0.9em; text-align: right; }
         .user-name { font-weight: bold; }
         .user-role { font-size: 0.8em; color: #64748b; }
+
+        /* Hamburger Menu Button (Default Hidden on PC) */
+        .menu-toggle-btn { display: none; background: none; border: none; font-size: 1.5em; color: var(--text-dark); cursor: pointer; }
 
         /* Halaman (SPA) */
         .page-content { display: none; padding: 30px; }
@@ -114,7 +117,7 @@
         .wo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
         .wo-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between; }
         .wo-card-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; color: var(--text-dark); border-bottom: 1px dashed #cbd5e1; padding-bottom: 10px;}
-        .wo-card-body { font-size: 0.95em; color: #475569; margin-bottom: 15px; flex: 1; }
+        .wo-card-body { font-size: 0.95em; color: #475569; margin-bottom: 15px; flex: 1; white-space: pre-line; }
         .wo-card-footer { display: flex; justify-content: flex-end; }
         
         /* Modals */
@@ -166,11 +169,53 @@
         /* Tabel Scrollable untuk Logbook (Biar rapi) */
         .table-responsive { width: 100%; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 10px; background: white;}
         .table-responsive table th, .table-responsive table td { white-space: nowrap; padding: 12px 15px; border-right: 1px solid #f1f5f9; }
+
+        /* TAMBAHAN: RESPONSIVE DESIGN UNTUK HP */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -270px;
+                height: 100vh;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            }
+            .sidebar.show {
+                left: 0;
+            }
+            .menu-toggle-btn {
+                display: block;
+            }
+            .grid-layout, .form-grid-2, .breakdown-controls, .kpi-breakdown-container {
+                grid-template-columns: 1fr;
+            }
+            .oee-placeholder-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .topbar {
+                padding: 0 15px;
+            }
+            .page-content {
+                padding: 15px;
+            }
+            /* Overlay saat sidebar muncul di HP */
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+        }
+        /* ===================================== */
     </style>
 </head>
 <body>
 
-    <div class="sidebar">
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <div class="sidebar" id="sidebar">
         <div class="sidebar-header">
             <i class="fa-solid fa-industry"></i> CONVERTING 1 SPS
         </div>
@@ -203,7 +248,12 @@
 
     <div class="main-wrapper">
         <div class="topbar">
-            <div class="topbar-left" id="topbar-title">Condition Based Monitoring</div>
+            <div class="topbar-left">
+                <button class="menu-toggle-btn" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <span id="topbar-title">Condition Based Monitoring</span>
+            </div>
             <div class="user-profile">
                 <div class="user-info">
                     <span class="user-name">Achmad Subayu</span>
@@ -964,6 +1014,15 @@
         let logbookData = [];
         let shoData = [];
 
+        /* TAMBAHAN: FUNGSI TOGGLE SIDEBAR UNTUK HP */
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+        /* ======================================= */
+
         function getCurrentShiftInfo() {
             let hour = new Date().getHours();
             if (hour >= 7 && hour < 15) return "Shift 1 (07:00 - 15:00)";
@@ -1392,7 +1451,6 @@
             }
         }
 
-        /* TAMBAHAN: FUNGSI TOGGLE MESIN WO MANUAL */
         function toggleWoMachineManual() {
             let val = document.getElementById('inputWoMachine').value;
             if(val === 'Lainnya') {
@@ -1401,17 +1459,14 @@
                 document.getElementById('inputWoMachineManual').style.display = 'none';
             }
         }
-        /* ======================================= */
 
         function saveManualWo() {
             let mac = document.getElementById('inputWoMachine').value;
             
-            // KODE BARU: Cek jika milih "Lainnya"
             if (mac === 'Lainnya') {
                 mac = document.getElementById('inputWoMachineManual').value.trim();
             }
             
-            // KODE BARU: Tarik data departemen dan deadline
             let dept = document.getElementById('inputWoDept').value;
             let deadline = document.getElementById('inputWoDeadline').value;
             let desc = document.getElementById('inputWoDesc').value.trim();
@@ -1420,7 +1475,6 @@
                 return alert("Pilih mesin, departemen requestor, deadline, dan isi deskripsi keluhan terlebih dahulu!");
             }
 
-            // KODE BARU: Gabungin departemen dan deadline ke task
             let newTask = `[Req: ${dept}] | Deadline: ${deadline}\nKeluhan: ${desc}`;
 
             let woEntry = {
@@ -1428,14 +1482,13 @@
                 machine: mac,
                 task: newTask,
                 status: 'Menunggu Eksekusi',
-                dept: dept,         // Ditambahkan untuk database
-                deadline: deadline, // Ditambahkan untuk database
-                desc: desc          // Ditambahkan untuk database
+                dept: dept,         
+                deadline: deadline, 
+                desc: desc          
             };
 
             workOrders.manual.push(woEntry);
             
-            // KODE BARU: Tarik function ini agar siap dikirim ke Database/Spreadsheet
             syncToGoogleSheets("addWo", woEntry);
 
             closeModal('addWoModal');
@@ -1583,10 +1636,12 @@
 
             if(!tgl || !tekAwal || !tekLanjut) return alert("Tanggal dan Nama Teknisi (Shift Selesai & Penerima) wajib diisi!");
 
+            let gabunganTeknisi = tekAwal + "\n*SHIFT " + shiftLanjut + "* : " + tekLanjut;
+
             let shoEntry = {
                 tanggal: tgl,
                 shift: shiftAwal,
-                teknisi: tekAwal,
+                teknisi: gabunganTeknisi,
                 shift_lanjut: shiftLanjut,
                 teknisi_lanjut: tekLanjut,
                 finding: finding,
@@ -1620,13 +1675,12 @@
             shoData.forEach(s => {
                 let toolsColor = s.tools.includes('LENGKAP') ? 'var(--success)' : 'var(--danger)';
                 
-                let teksAwal = s.teknisi;
-                let teksLanjut = s.teknisi_lanjut ? `<br><span style="color:#64748b; font-size:0.9em;">(Shift ${s.shift_lanjut})</span> ${s.teknisi_lanjut}` : '';
+                let htmlTeknisi = s.teknisi.replace(/\n/g, '<br>').replace(/\*/g, '');
                 
                 tbody.innerHTML += `
                     <tr>
                         <td>${s.tanggal} <br><strong>(Shift ${s.shift})</strong></td>
-                        <td><strong>${teksAwal}</strong> ${teksLanjut}</td>
+                        <td><strong>${htmlTeknisi}</strong></td>
                         <td style="white-space: pre-line;">${s.finding}</td>
                         <td style="white-space: pre-line; color: var(--danger); font-weight: 500;">${s.pending}</td>
                         <td style="text-align: center; color:${toolsColor}; font-weight:bold;">${s.tools}</td>
@@ -1641,6 +1695,14 @@
             
             document.getElementById('page-' + pageId).classList.add('active');
             document.getElementById('nav-' + pageId).classList.add('active');
+
+            /* TAMBAHAN: Tutup sidebar di HP saat pindah halaman */
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if(window.innerWidth <= 768) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            }
 
             if(pageId === 'dashboard') {
                 document.getElementById('topbar-title').innerText = "Condition Based Monitoring";
@@ -1681,7 +1743,6 @@
                 rawMachineList.forEach(id => {
                     sel.innerHTML += `<option value="${id}">${machineData[id].name}</option>`;
                 });
-                // KODE BARU: Menambahkan opsi "Lainnya" untuk input manual mesin
                 sel.innerHTML += '<option value="Lainnya">Lainnya (Ketik Manual)</option>';
                 
                 document.getElementById('inputWoMachineManual').style.display = 'none';
