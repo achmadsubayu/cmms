@@ -1,0 +1,2139 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SPS CMMS - Condition Monitoring & Work Order</title>
+    
+    <script src="dataProduksi.js"></script>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        :root {
+            --primary-bg: #f4f7f6;
+            --sidebar-bg: #1e293b;
+            --sidebar-hover: #334155;
+            --accent-color: #3b82f6;
+            --text-dark: #334155;
+            --text-light: #f8fafc;
+            --card-bg: #ffffff;
+            --danger: #ef4444;
+            --success: #10b981;
+            --warning: #f59e0b;
+            --purple: #8b5cf6;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+        body { display: flex; height: 100vh; background-color: var(--primary-bg); overflow: hidden; }
+
+        /* Sidebar */
+        .sidebar { width: 270px; background-color: var(--sidebar-bg); color: var(--text-light); display: flex; flex-direction: column; transition: all 0.3s ease; z-index: 1000;}
+        .sidebar-header { padding: 20px; font-size: 1.5em; font-weight: bold; text-align: center; border-bottom: 1px solid #334155; letter-spacing: 1px; color: #60a5fa;}
+        .nav-links { list-style: none; padding: 20px 0; flex: 1; overflow-y: auto; }
+        .nav-links li { padding: 15px 25px; transition: 0.2s; cursor: pointer; display: flex; align-items: center; gap: 15px; position: relative; }
+        .nav-links li:hover, .nav-links li.active { background-color: var(--sidebar-hover); border-left: 4px solid var(--accent-color); }
+        .nav-links li i { font-size: 1.2em; width: 20px; text-align: center; }
+
+        /* Notifikasi Badge */
+        .badge { background: var(--danger); color: white; font-size: 0.75em; padding: 2px 8px; border-radius: 12px; font-weight: bold; margin-left: 5px; }
+        .badge-blue { background: var(--accent-color); }
+        .badge-warning { background: var(--warning); }
+        .badge-danger { background: var(--danger); }
+        .sidebar-badge { position: absolute; right: 20px; }
+
+        /* Main Area */
+        .main-wrapper { flex: 1; display: flex; flex-direction: column; overflow-y: auto; position: relative;}
+        .topbar { background-color: var(--card-bg); height: 70px; display: flex; justify-content: space-between; align-items: center; padding: 0 30px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); flex-shrink: 0; position: sticky; top: 0; z-index: 50;}
+        .topbar-left { font-size: 1.2em; font-weight: 600; color: var(--text-dark); display: flex; align-items: center; gap: 15px;}
+        .user-profile { display: flex; align-items: center; gap: 15px; color: var(--text-dark); }
+        .user-profile i { font-size: 1.5em; color: #94a3b8; }
+        .user-info { display: flex; flex-direction: column; font-size: 0.9em; text-align: right; }
+        .user-name { font-weight: bold; }
+        .user-role { font-size: 0.8em; color: #64748b; }
+
+        /* Hamburger Menu Button (Default Hidden on PC) */
+        .menu-toggle-btn { display: none; background: none; border: none; font-size: 1.5em; color: var(--text-dark); cursor: pointer; }
+
+        /* Halaman (SPA) */
+        .page-content { display: none; padding: 30px; }
+        .page-content.active { display: block; animation: fadeIn 0.4s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* KPI Cards */
+        .kpi-container { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .kpi-card { background-color: var(--card-bg); padding: 20px; border-radius: 10px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); display: flex; align-items: center; justify-content: space-between; border-left: 5px solid var(--accent-color); }
+        .kpi-info h3 { font-size: 0.9em; color: #64748b; margin-bottom: 5px; }
+        .kpi-info .value { font-size: 1.8em; font-weight: bold; color: var(--text-dark); }
+        .kpi-icon { font-size: 2.5em; color: #e2e8f0; }
+
+        /* Kontrol Mesin Dashboard */
+        .machine-control { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; background: white; padding: 15px 20px; border-radius: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.02); flex-wrap: wrap; }
+        .machine-control select, .form-group select { padding: 10px 15px; font-size: 1em; border-radius: 8px; border: 1px solid #cbd5e1; background-color: #f8fafc; cursor: pointer; font-weight: 600; color: var(--text-dark); outline: none; min-width: 250px; }
+        .dashboard-info-bar { width: 100%; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-size: 0.95em; color: #475569; display: flex; justify-content: space-between;}
+
+        /* Panel & Layout Umum */
+        .grid-layout { display: grid; grid-template-columns: 1.2fr 1.5fr; gap: 20px; }
+        @media (max-width: 1200px) { .grid-layout { grid-template-columns: 1fr; } }
+        .panel { background-color: var(--card-bg); border-radius: 10px; padding: 25px; box-shadow: 0 4px 6px rgba(0,0,0,0.02); margin-bottom: 20px;}
+        .panel-title { font-size: 1.1em; font-weight: 600; color: var(--text-dark); margin-bottom: 20px; display: flex; justify-content: space-between; align-items: center;}
+        
+        /* Tabel Umum */
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: 12px 10px; border-bottom: 1px solid #f1f5f9; font-size: 0.95em; }
+        th { color: #64748b; font-weight: 600; text-transform: uppercase; font-size: 0.8em; }
+        
+        /* Dashboard Status */
+        .status-good { color: var(--success); font-weight: 600; }
+        .status-warn { color: var(--warning); font-weight: 600; }
+        .status-danger { color: var(--danger); font-weight: 600; }
+        .life-badge { padding: 5px 10px; border-radius: 6px; font-size: 0.85em; font-weight: bold; color: white; display: inline-block; min-width: 65px; text-align: center; }
+        .life-good { background-color: var(--success); }
+        .life-warn { background-color: var(--warning); color: #fff;}
+        .life-danger { background-color: var(--danger); box-shadow: 0 0 8px rgba(239, 68, 68, 0.4); }
+        .product-badge { padding: 5px 10px; border-radius: 6px; font-size: 0.85em; font-weight: 600; background-color: #f1f5f9; color: var(--text-dark); display: inline-block;}
+        .chart-container { position: relative; height: 300px; width: 100%; }
+
+        /* Tombol Umum */
+        .btn { padding: 10px 15px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 0.9em; transition: 0.2s; display: inline-flex; align-items: center; gap: 8px;}
+        .btn-primary { background-color: var(--accent-color); color: white; }
+        .btn-primary:hover { background-color: #2563eb; }
+        .btn-danger { background-color: var(--danger); color: white; padding: 6px 10px; }
+        .btn-danger:hover { background-color: #dc2626; }
+        .btn-success { background-color: var(--success); color: white; padding: 8px 12px; }
+        .btn-success:hover { background-color: #059669; }
+        .btn-purple { background-color: var(--purple); color: white; padding: 8px 12px; }
+        .btn-purple:hover { background-color: #7c3aed; }
+        .btn-outline { background-color: transparent; border: 1px solid var(--accent-color); color: var(--accent-color); padding: 6px 10px;}
+        .btn-outline:hover { background-color: var(--accent-color); color: white; }
+        .header-action { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+
+        /* --- HALAMAN WORK ORDER --- */
+        .wo-tabs { display: flex; gap: 20px; border-bottom: 2px solid #e2e8f0; margin-bottom: 25px; flex-wrap: wrap; }
+        .tab-btn { background: none; border: none; font-size: 1.05em; font-weight: 600; color: #64748b; cursor: pointer; padding: 10px 15px; position: relative; display: flex; align-items: center; }
+        .tab-btn.active { color: var(--text-dark); border-bottom: 3px solid var(--text-dark); margin-bottom: -2px; }
+        
+        .tab-manual.active { border-bottom-color: var(--accent-color); color: var(--accent-color); }
+        .tab-preventive.active { border-bottom-color: var(--warning); color: var(--warning); }
+        .tab-predictive.active { border-bottom-color: var(--danger); color: var(--danger); }
+
+        .wo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 20px; }
+        .wo-card { background: white; border: 1px solid #e2e8f0; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.02); display: flex; flex-direction: column; justify-content: space-between; }
+        .wo-card-header { display: flex; justify-content: space-between; margin-bottom: 10px; font-weight: bold; color: var(--text-dark); border-bottom: 1px dashed #cbd5e1; padding-bottom: 10px;}
+        .wo-card-body { font-size: 0.95em; color: #475569; margin-bottom: 15px; flex: 1; white-space: pre-line; }
+        .wo-card-footer { display: flex; justify-content: flex-end; }
+        
+        /* Modals */
+        .modal-overlay { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); justify-content: center; align-items: center; z-index: 1000; }
+        .modal-overlay.active { display: flex; }
+        .modal { background: white; padding: 25px; border-radius: 10px; width: 450px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); max-height: 90vh; overflow-y: auto;}
+        
+        /* Modal Logbook Khusus (Lebih Lebar) */
+        .modal-lg { width: 850px; }
+
+        .modal h2 { margin-bottom: 15px; color: var(--text-dark); border-bottom: 1px solid #e2e8f0; padding-bottom: 10px;}
+        .form-group { margin-bottom: 15px; }
+        .form-group label { display: block; margin-bottom: 5px; color: #64748b; font-weight: 600; font-size: 0.9em; }
+        .form-group input[type="text"], .form-group input[type="number"], .form-group input[type="date"], .form-group input[type="time"], .form-group textarea { width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; }
+        .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 25px; }
+        .btn-secondary { background-color: #e2e8f0; color: var(--text-dark); }
+        
+        /* Checkbox Grid */
+        .checkbox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 5px; padding: 15px; background: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0; }
+        .checkbox-label { display: flex; align-items: center; gap: 8px; font-size: 0.9em; color: var(--text-dark); cursor: pointer; user-select: none; }
+        .checkbox-label input { width: 16px; height: 16px; cursor: pointer; accent-color: var(--accent-color); }
+
+        /* Form Grid 2 Kolom untuk Logbook & SHO */
+        .form-grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+
+        /* --- HALAMAN KPI & OEE --- */
+        .breakdown-controls { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
+        .bd-btn { padding: 10px 5px; font-size: 1.1em; border-radius: 8px; font-weight: bold; text-align: center; color: white; border: none; cursor: pointer; transition: 0.3s; }
+        .bd-prod { background-color: var(--accent-color); box-shadow: 0 4px 10px rgba(59, 130, 246, 0.3); }
+        .bd-maint { background-color: var(--danger); box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3); }
+        .bd-ppic { background-color: var(--purple); box-shadow: 0 4px 10px rgba(139, 92, 246, 0.3); }
+
+        .timer-display { background: #1e293b; color: #10b981; font-family: monospace; font-size: 3.5em; text-align: center; padding: 20px; border-radius: 10px; letter-spacing: 5px; margin-bottom: 20px; box-shadow: inset 0 0 15px rgba(0,0,0,0.5); }
+        .timer-display.blink { animation: blinker 1s linear infinite; color: #ef4444; }
+        @keyframes blinker { 50% { opacity: 0.5; } }
+
+        /* Desain Card KPI Breakdown / OEE */
+        .kpi-breakdown-container { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px;}
+        .kpi-breakdown-card { padding: 20px 10px; border-radius: 12px; color: white; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        .kpi-breakdown-outline { padding: 20px 10px; border-radius: 12px; border: 2px solid; text-align: center; background-color: #f8fafc;}
+        .kpi-bd-title { font-size: 0.85em; font-weight: bold; letter-spacing: 1px; margin-bottom: 5px; opacity: 0.9;}
+        .kpi-bd-val { font-size: 2em; font-weight: 800; font-family: 'Segoe UI', sans-serif;}
+
+        /* Placeholder untuk OEE Cards */
+        .oee-placeholder-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px;}
+        .oee-placeholder-card { background: #f8fafc; border: 1px dashed #cbd5e1; padding: 20px; border-radius: 10px; text-align: center; color: #94a3b8; display: flex; flex-direction: column; justify-content: center; align-items: center; gap: 10px;}
+        .oee-placeholder-card i { font-size: 2em; opacity: 0.5;}
+        
+        /* Tabel Scrollable untuk Logbook (Biar rapi) */
+        .table-responsive { width: 100%; overflow-x: auto; border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 10px; background: white;}
+        .table-responsive table th, .table-responsive table td { white-space: nowrap; padding: 12px 15px; border-right: 1px solid #f1f5f9; }
+
+        /* TAMBAHAN: RESPONSIVE DESIGN UNTUK HP */
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                left: -270px;
+                height: 100vh;
+                box-shadow: 2px 0 10px rgba(0,0,0,0.2);
+            }
+            .sidebar.show {
+                left: 0;
+            }
+            .menu-toggle-btn {
+                display: block;
+            }
+            .grid-layout, .form-grid-2, .breakdown-controls, .kpi-breakdown-container {
+                grid-template-columns: 1fr;
+            }
+            .oee-placeholder-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+            .topbar {
+                padding: 0 15px;
+            }
+            .page-content {
+                padding: 15px;
+            }
+            /* Overlay saat sidebar muncul di HP */
+            .sidebar-overlay {
+                display: none;
+                position: fixed;
+                top: 0; left: 0; right: 0; bottom: 0;
+                background: rgba(0,0,0,0.5);
+                z-index: 999;
+            }
+            .sidebar-overlay.show {
+                display: block;
+            }
+        }
+        /* ===================================== */
+    </style>
+</head>
+<body>
+
+    <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <i class="fa-solid fa-industry"></i> CONVERTING 1 SPS
+        </div>
+        <ul class="nav-links">
+            <li id="nav-dashboard" class="active" onclick="switchPage('dashboard')">
+                <i class="fa-solid fa-chart-line"></i> Dashboard CBM
+            </li>
+            <li id="nav-machine-list" onclick="switchPage('machine-list')">
+                <i class="fa-solid fa-server"></i> Daftar Mesin
+            </li>
+            <li id="nav-work-orders" onclick="switchPage('work-orders')">
+                <i class="fa-solid fa-clipboard-list"></i> Work Orders 
+                <span id="sidebar-wo-badge" class="badge sidebar-badge badge-danger" style="display:none;">0</span>
+            </li>
+            <li id="nav-kpi-oee" onclick="switchPage('kpi-oee')">
+                <i class="fa-solid fa-chart-pie"></i> KPI & OEE Parameter
+            </li>
+            <li><i class="fa-solid fa-screwdriver-wrench"></i> Inventory Part</li>
+            <li id="nav-production" onclick="switchPage('production')">
+                <i class="fa-solid fa-box-open"></i> Produksi & Shift
+            </li>
+            <li id="nav-electricity" onclick="switchPage('electricity')">
+                <i class="fa-solid fa-bolt" style="color: #cbd5e1;"></i> Cost Listrik
+            </li>
+            <li id="nav-logbook" onclick="switchPage('logbook')">
+                <i class="fa-solid fa-book-journal-whills" style="color: #cbd5e1;"></i> Logbook Technician
+            </li>
+            
+            <li id="nav-schedule" onclick="switchPage('schedule')">
+                <i class="fa-solid fa-calendar-days" style="color: #cbd5e1;"></i> Schedule Produksi
+            </li>
+            </ul>
+    </div>
+
+    <div class="main-wrapper">
+        <div class="topbar">
+            <div class="topbar-left">
+                <button class="menu-toggle-btn" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <span id="topbar-title" style="margin-left:15px;">Condition Based Monitoring</span>
+            </div>
+            <div class="user-profile">
+                <div class="user-info">
+                    <span class="user-name">Achmad Subayu</span>
+                    <span class="user-role">MT Maintenance</span>
+                </div>
+                <i class="fa-solid fa-circle-user"></i>
+            </div>
+        </div>
+
+        <div id="page-dashboard" class="page-content active">
+            <div class="kpi-container">
+                <div class="kpi-card" style="border-color: #3b82f6;">
+                    <div class="kpi-info"><h3>Total Mesin Aktif</h3><div class="value" id="kpi-total">37</div></div>
+                    <i class="fa-solid fa-microchip kpi-icon"></i>
+                </div>
+                <div class="kpi-card" style="border-color: #10b981;">
+                    <div class="kpi-info"><h3>Sensor Gateway Online</h3><div class="value">100%</div></div>
+                    <i class="fa-solid fa-wifi kpi-icon"></i>
+                </div>
+                <div class="kpi-card" style="border-color: #f59e0b;">
+                    <div class="kpi-info"><h3>Mesin Perlu PM (>= 35 Hari)</h3><div class="value" id="kpi-pm">0</div></div>
+                    <i class="fa-solid fa-calendar-check kpi-icon"></i>
+                </div>
+                <div class="kpi-card" style="border-color: #ef4444;">
+                    <div class="kpi-info"><h3>Komponen Kritis (PdM)</h3><div class="value" id="kpi-kritis">0</div></div>
+                    <i class="fa-solid fa-triangle-exclamation kpi-icon"></i>
+                </div>
+            </div>
+
+            <div class="machine-control">
+                <div style="display: flex; align-items: center; gap: 15px;">
+                    <label for="machine-select" style="font-weight: 600; color: #334155;"><i class="fa-solid fa-filter"></i> Pilih Lini Mesin:</label>
+                    <select id="machine-select" onchange="switchMachine()"></select>
+                    <span style="font-size: 0.95em; font-weight: 600; color: #64748b;" id="machine-run-days"></span>
+                </div>
+                <div class="dashboard-info-bar">
+                    <div>
+                        <i class="fa-regular fa-clock" style="color: var(--accent-color);"></i> <strong>Jadwal Operasional:</strong> 
+                        <span id="dash-shift-info" style="color: var(--accent-color); font-weight: bold; margin-left: 5px;">Shift 1 (07:00 - 15:00)</span>
+                    </div>
+                    <div>
+                        <i class="fa-solid fa-box" style="color: var(--success);"></i> <strong>Status / Produk:</strong> 
+                        <span id="dash-product-info" style="font-weight: bold; margin-left: 5px;">-</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="grid-layout">
+                <div class="panel">
+                    <div class="panel-title">
+                        Parameter Proses (<span id="display-machine-name">-</span>)
+                        <i class="fa-solid fa-bolt" style="color: #cbd5e1;"></i>
+                    </div>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Proses</th>
+                                <th>Freq (Hz)</th>
+                                <th>Arus (A)</th>
+                                <th>Suhu (°C)</th>
+                                <th>Vib (mm/s)</th>
+                                <th>Sisa Umur Komp.</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-body"></tbody>
+                    </table>
+                </div>
+
+                <div class="panel">
+                    <div class="panel-title">
+                        Live Trend Historis Mesin
+                        <i class="fa-solid fa-chart-area" style="color: #cbd5e1;"></i>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-machine-list" class="page-content">
+            <div class="panel">
+                <div class="header-action">
+                    <div class="panel-title" style="margin: 0;">Database Mesin Pabrik</div>
+                    <button class="btn btn-primary" onclick="openModal('addMachineModal')"><i class="fa-solid fa-plus"></i> Tambah Mesin Baru</button>
+                </div>
+                
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Mesin</th>
+                            <th>Nama / Kategori</th>
+                            <th>Daftar Proses Utama</th>
+                            <th style="text-align: center;">Hari Operasi</th>
+                            <th style="text-align: center;">Aksi</th>
+                        </tr>
+                    </thead>
+                    <tbody id="db-machine-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="page-work-orders" class="page-content">
+            <div class="panel">
+                <div class="header-action">
+                    <div class="wo-tabs" style="margin: 0;">
+                        <button class="tab-btn tab-manual active" id="tab-manual" onclick="switchWoTab('manual')">
+                            Manual <span class="badge badge-blue" id="badge-manual">0</span>
+                        </button>
+                        <button class="tab-btn tab-preventive" id="tab-preventive" onclick="switchWoTab('preventive')">
+                            Preventive (Mesin) <span class="badge badge-warning" id="badge-preventive">0</span>
+                        </button>
+                        <button class="tab-btn tab-predictive" id="tab-predictive" onclick="switchWoTab('predictive')">
+                            Predictive (Komponen) <span class="badge badge-danger" id="badge-predictive">0</span>
+                        </button>
+                    </div>
+                    <button class="btn btn-primary" id="btn-add-wo" onclick="openModal('addWoModal')"><i class="fa-solid fa-plus"></i> Buat WO Manual</button>
+                </div>
+
+                <div class="wo-grid" id="wo-container">
+                </div>
+            </div>
+        </div>
+
+        <div id="page-production" class="page-content">
+            <div class="panel" style="background-color: var(--sidebar-bg); color: white; margin-bottom: 20px;">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <h2 style="margin-bottom: 5px;"><i class="fa-solid fa-industry"></i> Status Produksi Real-Time</h2>
+                        <p style="color: #94a3b8; font-size: 0.9em;">Pantau dan kelola brand yang diproduksi di setiap lini mesin.</p>
+                    </div>
+                    <div style="text-align: right; background: rgba(255,255,255,0.1); padding: 15px 25px; border-radius: 8px;">
+                        <div style="font-size: 0.9em; color: #cbd5e1; margin-bottom: 5px;">Jadwal Saat Ini</div>
+                        <div id="production-shift-display" style="font-size: 1.5em; font-weight: bold; color: #60a5fa;">Shift 1 (07:00 - 15:00)</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel" style="margin-bottom: 20px;">
+                <div class="header-action">
+                    <div class="panel-title" style="margin: 0;">Daftar Produk Berjalan (Running Product)</div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Lini Mesin</th>
+                            <th>Nama Mesin</th>
+                            <th>Brand / Produk Berjalan</th>
+                            <th style="text-align: center;">Set Produksi Manual</th>
+                        </tr>
+                    </thead>
+                    <tbody id="db-production-body">
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="page-kpi-oee" class="page-content">
+            
+            <div class="oee-placeholder-grid">
+                <div class="oee-placeholder-card">
+                    <i class="fa-solid fa-chart-line"></i>
+                    <div style="font-weight: bold; color: #64748b;">Kalkulasi OEE (%)</div>
+                    <div style="font-size: 0.8em;">(Segera Hadir)</div>
+                </div>
+                <div class="oee-placeholder-card">
+                    <i class="fa-solid fa-stopwatch"></i>
+                    <div style="font-weight: bold; color: #64748b;">MTBF Parameter</div>
+                    <div style="font-size: 0.8em;">(Segera Hadir)</div>
+                </div>
+                <div class="oee-placeholder-card">
+                    <i class="fa-solid fa-toolbox"></i>
+                    <div style="font-weight: bold; color: #64748b;">MTTR Parameter</div>
+                    <div style="font-size: 0.8em;">(Segera Hadir)</div>
+                </div>
+                <div class="oee-placeholder-card">
+                    <i class="fa-solid fa-money-bill-trend-up"></i>
+                    <div style="font-weight: bold; color: #64748b;">Sparepart Cost</div>
+                    <div style="font-size: 0.8em;">(Segera Hadir)</div>
+                </div>
+            </div>
+
+            <div class="machine-control" style="margin-bottom: 20px;">
+                <label for="bd-machine-select" style="font-weight: 600; color: #334155;"><i class="fa-solid fa-filter"></i> Pilih Mesin untuk Dikelola:</label>
+                <select id="bd-machine-select" onchange="syncBreakdownMachine()"></select>
+            </div>
+
+            <div class="grid-layout" style="grid-template-columns: 1fr 1.8fr;">
+                <div class="panel">
+                    <div class="panel-title">
+                        Kontrol Downtime
+                        <span id="bd-status-indicator" style="font-size: 0.8em; padding: 5px 10px; background: #e2e8f0; border-radius: 5px;">Status: AMAN</span>
+                    </div>
+
+                    <div class="timer-display" id="bd-timer">00:00:00</div>
+
+                    <p style="margin-bottom: 10px; font-weight: bold; color: #64748b; text-align: center;">Tekan Tombol Untuk Memulai Breakdown:</p>
+                    <div class="breakdown-controls">
+                        <button class="bd-btn bd-prod" onclick="startBreakdown('production')"><i class="fa-solid fa-gears"></i><br>Prod</button>
+                        <button class="bd-btn bd-maint" onclick="startBreakdown('maintenance')"><i class="fa-solid fa-wrench"></i><br>Maint</button>
+                        <button class="bd-btn bd-ppic" onclick="startBreakdown('ppic')"><i class="fa-solid fa-truck-fast"></i><br>PPIC</button>
+                    </div>
+
+                    <button class="btn btn-success" style="width: 100%; justify-content: center; padding: 15px; font-size: 1.1em; margin-top: 10px;" onclick="stopBreakdown()">
+                        <i class="fa-solid fa-check-double"></i> Selesaikan & Simpan
+                    </button>
+                </div>
+
+                <div class="panel" style="display: flex; flex-direction: column;">
+                    <div class="panel-title">
+                        Akumulasi Breakdown Mesin (Menit)
+                    </div>
+                    
+                    <div style="font-size: 0.9em; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;"><i class="fa-solid fa-globe"></i> Total Pabrik (Semua Mesin)</div>
+                    <div class="kpi-breakdown-container">
+                        <div class="kpi-breakdown-card" style="background-color: var(--accent-color);">
+                            <div class="kpi-bd-title">PRODUCTION</div>
+                            <div class="kpi-bd-val" id="global-val-prod">0</div>
+                        </div>
+                        <div class="kpi-breakdown-card" style="background-color: var(--danger);">
+                            <div class="kpi-bd-title">MAINTENANCE</div>
+                            <div class="kpi-bd-val" id="global-val-maint">0</div>
+                        </div>
+                        <div class="kpi-breakdown-card" style="background-color: var(--purple);">
+                            <div class="kpi-bd-title">PPIC</div>
+                            <div class="kpi-bd-val" id="global-val-ppic">0</div>
+                        </div>
+                    </div>
+
+                    <div class="chart-container" style="height: 250px; margin-top: 20px; margin-bottom: 20px;">
+                        <canvas id="breakdownChart"></canvas>
+                    </div>
+
+                    <hr style="border: 0; border-top: 1px dashed #cbd5e1; margin-bottom: 15px;">
+
+                    <div style="font-size: 0.9em; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px;"><i class="fa-solid fa-microchip"></i> Spesifik Mesin: <span id="bd-spesific-name">NP313</span></div>
+                    <div class="kpi-breakdown-container" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 0;">
+                        <div class="kpi-breakdown-outline" style="border-color: var(--accent-color); color: var(--accent-color);">
+                            <div class="kpi-bd-title" style="color: #64748b;">Production</div>
+                            <div class="kpi-bd-val" id="val-bd-prod">0 m</div>
+                        </div>
+                        <div class="kpi-breakdown-outline" style="border-color: var(--danger); color: var(--danger);">
+                            <div class="kpi-bd-title" style="color: #64748b;">Maintenance</div>
+                            <div class="kpi-bd-val" id="val-bd-maint">0 m</div>
+                        </div>
+                        <div class="kpi-breakdown-outline" style="border-color: var(--purple); color: var(--purple);">
+                            <div class="kpi-bd-title" style="color: #64748b;">PPIC</div>
+                            <div class="kpi-bd-val" id="val-bd-ppic">0 m</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-electricity" class="page-content">
+            <div class="panel">
+                <div class="header-action">
+                    <div>
+                        <h2 style="color: var(--text-dark); margin-bottom: 5px;"><i class="fa-solid fa-bolt" style="color:#f59e0b;"></i> Audit Energi & Cost Listrik Lini Produksi</h2>
+                        <p style="font-size: 0.85em; color: #64748b;">Kalkulasi Golongan I-4 (Industri Besar, >30.000 kVA) Rp 996,74/kWh per Q2 2026</p>
+                    </div>
+                    <div style="text-align: right; background: #f1f5f9; padding: 15px 25px; border-radius: 8px; border-left: 5px solid var(--danger);">
+                        <div style="font-size: 0.85em; color: #64748b;">Total Konsumsi: <strong style="color: #334155;"><span id="total-factory-kwh">0</span> kWh</strong></div>
+                        <div style="font-weight: bold; color: #1e293b; font-size: 1.2em; margin-top: 5px;">Total Cost Lini: <span id="total-factory-cost" style="color: var(--danger);">Rp 0</span></div>
+                    </div>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID Lini Mesin</th>
+                            <th>Status Operasi</th>
+                            <th>Daya Terpasang (kW)</th>
+                            <th style="text-align: center;">Waktu Aktif Shift Ini</th>
+                            <th style="text-align: center; color: var(--accent-color);">Konsumsi Listrik (kWh)</th>
+                            <th style="text-align: right; color: var(--danger);">Estimasi Biaya Listrik (Rp)</th>
+                        </tr>
+                    </thead>
+                    <tbody id="db-electricity-body"></tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="page-logbook" class="page-content">
+            
+            <div class="panel" style="margin-bottom: 20px;">
+                <div class="header-action">
+                    <div>
+                        <h2 style="color: var(--text-dark); margin-bottom: 5px;"><i class="fa-solid fa-handshake" style="color:var(--purple);"></i> Shift Handover (SHO)</h2>
+                        <p style="font-size: 0.85em; color: #64748b;">Laporan serah terima shift antar teknisi (Finding & Pending Jobs).</p>
+                    </div>
+                    <button class="btn btn-purple" onclick="openModal('addShoModal')"><i class="fa-solid fa-file-signature"></i> Buat Laporan SHO</button>
+                </div>
+                <div class="table-responsive">
+                    <table style="min-width: 800px;">
+                        <thead>
+                            <tr>
+                                <th>Tanggal & Shift</th>
+                                <th>Nama Teknisi</th>
+                                <th>Finding / Temuan</th>
+                                <th>Pending Jobs</th>
+                                <th style="text-align: center;">Status Tools</th>
+                            </tr>
+                        </thead>
+                        <tbody id="db-sho-body">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="panel">
+                <div class="header-action">
+                    <div>
+                        <h2 style="color: var(--text-dark); margin-bottom: 5px;"><i class="fa-solid fa-book-journal-whills" style="color:var(--accent-color);"></i> Laporan Logbook Pekerjaan</h2>
+                        <p style="font-size: 0.85em; color: #64748b;">Rekam jejak tindakan perbaikan teknisi secara detail.</p>
+                    </div>
+                    <button class="btn btn-primary" onclick="openModal('addLogbookModal')"><i class="fa-solid fa-plus"></i> Tambah Entry Logbook</button>
+                </div>
+                
+                <div class="table-responsive">
+                    <table style="min-width: 1800px;">
+                        <thead>
+                            <tr>
+                                <th>Tanggal</th>
+                                <th>Shift</th>
+                                <th>Lini Mesin</th>
+                                <th>Unit</th>
+                                <th>Kendala / Masalah</th>
+                                <th>Penyebab</th>
+                                <th>Kategori</th>
+                                <th>Tindakan</th>
+                                <th>Mulai</th>
+                                <th>Selesai</th>
+                                <th style="text-align: center;">Total Waktu</th>
+                                <th>HM</th>
+                                <th>Part Diganti</th>
+                                <th>Placement</th>
+                                <th>Sub Placement</th>
+                                <th style="text-align: center;">Status Pekerjaan</th>
+                            </tr>
+                        </thead>
+                        <tbody id="db-logbook-body">
+                            </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div id="page-schedule" class="page-content">
+            <div class="panel">
+                <div class="panel-title">
+                    Master Data Schedule & Parameter Produksi
+                    <i class="fa-solid fa-calendar-days" style="color: #cbd5e1;"></i>
+                </div>
+                
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-desktop" style="color: var(--accent-color);"></i> Pilih Line Mesin</label>
+                        <select id="schedMachine" onchange="updateScheduleProducts()"></select>
+                    </div>
+                    <div class="form-group">
+                        <label><i class="fa-solid fa-box-open" style="color: var(--warning);"></i> Pilih Produk Berjalan</label>
+                        <select id="schedProduct" onchange="updateScheduleDetails()"></select>
+                    </div>
+                </div>
+
+                <hr style="border: 0; border-top: 1px dashed #cbd5e1; margin: 20px 0;">
+                
+                <div class="form-grid-2">
+                    <div class="form-group">
+                        <label style="color: #334155;">Kode Material FG New</label>
+                        <input type="text" id="schedKodeMat" disabled style="background:#f8fafc; font-weight:bold; color: #475569; font-family: monospace;">
+                    </div>
+                    <div class="form-group">
+                        <label style="color: #334155;">Lebar Jumbo (CM)</label>
+                        <input type="text" id="schedLebar" disabled style="background:#f8fafc; font-weight:bold; color: #475569;">
+                    </div>
+                </div>
+
+                <div class="kpi-breakdown-container" style="margin-top: 15px;">
+                    <div class="kpi-breakdown-outline" style="border-color: var(--success); color: var(--success); background: #f0fdf4;">
+                        <div class="kpi-bd-title" style="color: #047857;">TARGET 100% (CRT)</div>
+                        <div class="kpi-bd-val" id="schedT100">0</div>
+                    </div>
+                    <div class="kpi-breakdown-outline" style="border-color: var(--warning); color: var(--warning); background: #fffbeb;">
+                        <div class="kpi-bd-title" style="color: #b45309;">TARGET 70% (CRT)</div>
+                        <div class="kpi-bd-val" id="schedT70">0</div>
+                    </div>
+                    <div class="kpi-breakdown-outline" style="border-color: var(--purple); color: var(--purple); background: #f5f3ff;">
+                        <div class="kpi-bd-title" style="color: #6d28d9;">IDEAL SPEED (Min/Crt)</div>
+                        <div class="kpi-bd-val" id="schedSpeed">0</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        </div>
+
+    <div class="modal-overlay" id="addMachineModal">
+        <div class="modal">
+            <h2>Tambah Lini Mesin</h2>
+            <div class="form-group">
+                <label>ID Mesin</label>
+                <input type="text" id="inputMachineId" placeholder="Contoh: NP999" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Nama Mesin</label>
+                <input type="text" id="inputMachineName" placeholder="Contoh: Line Napkin Khusus" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Proses Mesin (Pilih Proses yang Berjalan)</label>
+                <div class="checkbox-grid">
+                    <label class="checkbox-label"><input type="checkbox" class="process-check" value="Unwinder"> Unwinder</label>
+                    <label class="checkbox-label"><input type="checkbox" class="process-check" value="Emboss"> Emboss</label>
+                    <label class="checkbox-label"><input type="checkbox" class="process-check" value="Rewinder"> Rewinder</label>
+                    <label class="checkbox-label"><input type="checkbox" class="process-check" value="Folding"> Folding</label>
+                    <label class="checkbox-label"><input type="checkbox" class="process-check" value="Logsaw"> Logsaw</label>
+                    <label class="checkbox-label"><input type="checkbox" class="process-check" value="Bandsaw"> Bandsaw</label>
+                    <label class="checkbox-label"><input type="checkbox" class="process-check" value="Perforasi"> Perforasi</label>
+                    <label class="checkbox-label"><input type="checkbox" class="process-check" value="Vacuum"> Vacuum</label>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('addMachineModal')">Batal</button>
+                <button class="btn btn-primary" onclick="saveNewMachine()">Simpan Mesin</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="addWoModal">
+        <div class="modal">
+            <h2>Buat WO Manual</h2>
+            <div class="form-group">
+                <label>Pilih Mesin Tujuan</label>
+                <select id="inputWoMachine" onchange="toggleWoMachineManual()"></select>
+                <input type="text" id="inputWoMachineManual" placeholder="Ketik Nama Mesin Secara Manual..." style="display:none; margin-top: 10px;" autocomplete="off">
+            </div>
+            <div class="form-group">
+                <label>Departemen Requestor</label>
+                <select id="inputWoDept">
+                    <option value="">-- Pilih Departemen --</option>
+                    <option value="Produksi">Produksi</option>
+                    <option value="PPIC">PPIC</option>
+                    <option value="QC">QC</option>
+                    <option value="Maintenance">Maintenance</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Due Date (Deadline)</label>
+                <input type="date" id="inputWoDeadline">
+            </div>
+            <div class="form-group">
+                <label>Deskripsi / Keluhan Produksi</label>
+                <textarea id="inputWoDesc" rows="4" placeholder="Contoh: Suara berisik pada area bearing unwinder..."></textarea>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('addWoModal')">Batal</button>
+                <button class="btn btn-primary" onclick="saveManualWo()">Kirim WO</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="updateProductionModal">
+        <div class="modal">
+            <h2>Set Produk Mesin</h2>
+            <div class="form-group">
+                <label>ID Mesin</label>
+                <input type="text" id="inputProdMachineId" disabled style="background-color: #f1f5f9; font-weight: bold;">
+            </div>
+            <div class="form-group">
+                <label>Pilih Brand / Produk</label>
+                <select id="inputProdSelect"></select>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('updateProductionModal')">Batal</button>
+                <button class="btn btn-primary" onclick="saveProductionUpdate()">Update Produksi</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="addLogbookModal">
+        <div class="modal modal-lg">
+            <h2>Form Laporan Logbook Shift</h2>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label>Tanggal</label>
+                    <input type="date" id="logTanggal">
+                </div>
+                <div class="form-group">
+                    <label>Shift Operasional</label>
+                    <select id="logShift" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none;">
+                        <option value="1">Shift 1 (07:00 - 15:00)</option>
+                        <option value="2">Shift 2 (15:00 - 23:00)</option>
+                        <option value="3">Shift 3 (23:00 - 07:00)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Line Mesin</label>
+                    <select id="logMesin" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none;"></select>
+                </div>
+                <div class="form-group">
+                    <label>Unit / Bagian Mesin</label>
+                    <select id="logUnit" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none;" onchange="toggleUnitManual()">
+                    </select>
+                    <input type="text" id="logUnitManual" placeholder="Ketik Unit Manual..." style="display:none; margin-top: 10px;" autocomplete="off">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Masalah / Kendala</label>
+                    <input type="text" id="logMasalah" placeholder="Jelaskan kendala mesin" autocomplete="off">
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Penyebab Utama (Root Cause)</label>
+                    <input type="text" id="logPenyebab" placeholder="Jelaskan penyebab kerusakan" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Kategori Perbaikan</label>
+                    <input type="text" id="logKategori" placeholder="Ketik Kategori (Misal: Breakdown)" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Tindakan Perbaikan</label>
+                    <input type="text" id="logTindakan" placeholder="Apa yang dilakukan?" autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label>Waktu Mulai Pengerjaan</label>
+                    <input type="time" id="logMulai" onchange="calcLogbookTime()">
+                </div>
+                <div class="form-group">
+                    <label>Waktu Selesai</label>
+                    <input type="time" id="logSelesai" onchange="calcLogbookTime()">
+                </div>
+                <div class="form-group">
+                    <label>Total Waktu (Menit)</label>
+                    <input type="text" id="logTotalWaktu" disabled style="background:#f1f5f9; font-weight:bold; color:var(--danger);">
+                </div>
+                <div class="form-group">
+                    <label>Hour Meter (Jika Ada)</label>
+                    <input type="number" id="logHourMeter" placeholder="Angka HM">
+                </div>
+                <div class="form-group">
+                    <label>Penggantian Part</label>
+                    <input type="text" id="logGantiPart" placeholder="Nama part utama (opsional)">
+                </div>
+                <div class="form-group">
+                    <label>Placement Part</label>
+                    <input type="text" id="logPlacement" placeholder="Lokasi penempatan (opsional)">
+                </div>
+                <div class="form-group">
+                    <label>Sub Placement Part</label>
+                    <input type="text" id="logSubPlacement" placeholder="Detail lokasi (opsional)">
+                </div>
+                <div class="form-group">
+                    <label>Status Pekerjaan (Penting untuk SHO)</label>
+                    <select id="logStatus" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-weight:bold; color:var(--text-dark);">
+                        <option value="Selesai">✅ Selesai</option>
+                        <option value="Pending Job">⏳ Pending Job (Diteruskan ke Shift Berikutnya)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('addLogbookModal')">Batal</button>
+                <button class="btn btn-primary" onclick="saveLogbook()">Simpan Laporan</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal-overlay" id="addShoModal">
+        <div class="modal modal-lg">
+            <h2>Form Laporan Shift Handover (SHO)</h2>
+            <div class="form-grid-2">
+                <div class="form-group">
+                    <label>Tanggal</label>
+                    <input type="date" id="shoTanggal">
+                </div>
+                <div class="form-group">
+                    <label>Shift Selesai Bertugas</label>
+                    <select id="shoShift" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none;" onchange="autoFillSho()">
+                        <option value="1">Shift 1 (07:00 - 15:00)</option>
+                        <option value="2">Shift 2 (15:00 - 23:00)</option>
+                        <option value="3">Shift 3 (23:00 - 07:00)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Nama Teknisi (Shift Selesai)</label>
+                    <input type="text" id="shoTeknisi" placeholder="Contoh: Teguh, Bida, Imron" autocomplete="off">
+                </div>
+
+                <div class="form-group">
+                    <label>Shift Penerima (Berikutnya)</label>
+                    <select id="shoShiftNext" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none;">
+                        <option value="1">Shift 1 (07:00 - 15:00)</option>
+                        <option value="2">Shift 2 (15:00 - 23:00)</option>
+                        <option value="3">Shift 3 (23:00 - 07:00)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Nama Teknisi Penerima (Shift Berikutnya)</label>
+                    <input type="text" id="shoTeknisiNext" placeholder="Contoh: Agus, Wawan, Isal" autocomplete="off">
+                </div>
+
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Finding / Temuan Masalah (Ditarik Otomatis / Ketik Manual)</label>
+                    <textarea id="shoFinding" rows="4" placeholder="* Piston pendorong kompres manual TW 408 indikasi bocor..."></textarea>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Pending Jobs (Ditarik Otomatis dari Status Pending)</label>
+                    <textarea id="shoPending" rows="4" placeholder="* bearing embos steel JRT 06 aus..."></textarea>
+                </div>
+                <div class="form-group" style="grid-column: span 2;">
+                    <label>Kelengkapan Tools</label>
+                    <select id="shoTools" style="width: 100%; padding: 10px; border: 1px solid #cbd5e1; border-radius: 6px; outline: none; font-weight: bold;">
+                        <option value="LENGKAP">Lengkap & Sesuai Form</option>
+                        <option value="TIDAK LENGKAP">Tidak Lengkap (Ada yang Hilang/Rusak)</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary" onclick="closeModal('addShoModal')">Batal</button>
+                <button class="btn btn-purple" onclick="saveSho()">Simpan Laporan SHO</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function syncToGoogleSheets(actionName, dataObj) {
+            const scriptURL = 'https://script.google.com/macros/s/AKfycbxEX_TzUJ1Qwbw-a9VgM95LJUrRlAqaKuVmkg4Qlwj8wqfoLBdS04J7KjDEh_LO5J3-/exec'; 
+            
+            const firebaseFolder = actionName === 'addLogbook' ? 'logbook_technician' : 'shift_handover';
+            const firebaseUrl = `https://cmms-e41d0-default-rtdb.asia-southeast1.firebasedatabase.app/${firebaseFolder}.json?auth=FTvr2VIR4Nc47FVrsDzDGcy3DnJWUU1p1G6QSGar`;
+
+            fetch(firebaseUrl, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(dataObj)
+            }).then(() => console.log(`[FIREBASE] Sukses kirim data ke ${firebaseFolder}`))
+              .catch(err => console.error('[FIREBASE ERROR]', err));
+
+            const payload = { action: actionName, ...dataObj };
+
+            if(scriptURL !== 'URL_WEB_APP_GOOGLE_SCRIPT_ANDA_DI_SINI') {
+                fetch(scriptURL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'text/plain' },
+                    body: JSON.stringify(payload)
+                })
+                .then(response => console.log(`[GOOGLE SHEETS] Sukses kirim action: ${actionName}`))
+                .catch(error => console.error('[GOOGLE SHEETS ERROR]', error));
+            } else {
+                console.log("[GOOGLE SHEETS] Melewati proses kirim karena URL Script belum diatur.");
+            }
+        }
+    </script>
+
+    <script>
+        let rawMachineList = [
+            "NP313", "NP314", "NP315", "NP316", "NP317", "NP318", "NP319", "NP320", "NP321", "NP322", "NP323", "NP324", "NP002", "NP007",
+            "TW404", "TW405", "TW406", "TW407", "TW408", "TW409", "TW410", "TW411", "TW412", "TW413", "TW002",
+            "FC118", "FC121", "FC122", "FC103", "FC108",
+            "HRT001", "HRT002", "HRT03", "HRT04",
+            "TL204", "JRT005", "JRT006"
+        ];
+        
+        const productList = [
+            "IDLE / TIDAK PRODUKSI",
+            "HANABIYORI FACIAL BOX 150S 16 BDL FSC R3",
+            "HANABIYORI FACIAL BOX 240S 12BDL COC FSC",
+            "FACIAL SOFTPACK SNOOPY 150S 3/1 R-3",
+            "FACIAL SOFTPACK SNOOPY 150S 5/1 R-3",
+            "JUMBO PACK SAVEPAK 1200S R2",
+            "SOFTPACK FAVOUR TECHSON 160S FSC",
+            "SOFTPACK SM INTERNASIONAL 100S R-1",
+            "FACIAL BOX FAVOUR TECHSON 100S FSC",
+            "FACIAL BOX NASSCO N-02863",
+            "FACIAL BOX ROYALTY PREMIER 100S 19X19CM",
+            "FACIAL BOX WU INDUSTRI 100'S",
+            "FACIALBOX MOSAIC SKU 2606-7316",
+            "HANABIYORI FACIAL BOX 240S 12 BDL R-2",
+            "CENTERPULL RIGHT CHOICE BUNZL 78000417",
+            "HRT BETHEL 32 GSM 183M RTV-60012",
+            "HRT BETHEL 32 GSM 244M RTV-8006",
+            "HRT CLEAN & COMFORT REC HW 30350",
+            "HRT LAVENDER 570FT 174M-4786 (R1)",
+            "HRT LAVENDER 7.8\"X600 FT - 4786 (2)",
+            "HRT LUV 80M",
+            "HRT MORCON 800FT W106",
+            "HRT MOSAIC MPP-2655-7126",
+            "HRT ROYALTY PREMIER RP-HWT800V R-1",
+            "HRT TRUVAI SUPPLY HT181-E RCY 244M",
+            "HRT YNOTCH MORCON KRAFT 400RY R-2",
+            "HRT YNOTCH MORCON SWL 400WY R-1",
+            "CENTERPULL BOARDWALK BWK6400",
+            "CENTERPULL CLEAN & COMFORT 30888",
+            "CENTERPULL SILKY SOFT CPTW6600",
+            "CENTERPULL TOWEL FEATHER SOFT 652S 50-001",
+            "HRT AUTOCUT SWL 2P 120M",
+            "HRT AUTOCUT SWL 2P 250M R-1",
+            "HRT BETHEL 32 GSM 25.4*800 FT RTV-80010",
+            "HRT NASSCO KRAFT N-02770",
+            "HRT NASSCO KRAFT N-02770 R-1",
+            "HRT TRUVAI SUPPLY HT112 KRAFT",
+            "JRT 10002P PREMIUM QUALITY",
+            "JRT 8002P PREMIUM QUALITY",
+            "JRT ALLEGIANT K633 0007",
+            "JRT BELFAIR 91000 518M",
+            "JRT BELLFAIR 92004",
+            "JRT BETHEL PLASTICS 244M JRT-V1",
+            "JRT BETHEL PLASTICS 305M JRT-V10",
+            "JRT FAVOUR TECHSON276M 902280P FSC",
+            "JRT MORCON 228 M VT110 R-2",
+            "JRT MORCON 228 M VT110 R-3",
+            "JRT SOFTOWEL 500FT JRT121000",
+            "JRT VICTORIA BAY VBJT2101 R-1",
+            "JRT FEATHER SOFT 290M 200-001 R-1",
+            "JRT NASSCO N-02750 305 M",
+            "NAPKIN LUNCH MORCON WHITE L12500 R-3",
+            "NAPKIN LUNCH TRUVAI SUPPLY LN141",
+            "NAPKIN LUNCH COBALT 1/4 WHITE 500S",
+            "NAPKIN LUNCH MORCON QT FOLD L12500-R3",
+            "NAPKIN LUNCH SKP 100S 30 PC",
+            "NAPKIN DINNER MILESTONE 1/8 F QLT WHITE",
+            "NAPKIN DINNER QUILTED FINE DINE BROWN R-1",
+            "NAPKIN DINNER ROYALTY DN30002K",
+            "NAPKIN DINNER SMART SM2PWDN FSC R-1",
+            "NP DINNER CLEAN&COMFORT 10288 WHITE",
+            "NAPKIN DINNER TUVAI 1/8 F DN-181-E",
+            "NAPKIN COCKTAIL BETHEL 500S BN-4000 1",
+            "NAPKIN COCKTAIL MORCON 500'S B8500 R-2",
+            "NAPKIN COCKTAIL TRUVAI SUPPLY BN141-E",
+            "NAPKIN COCKTAIL TRUVAI SUPPLY BN241",
+            "NP COCKTAIL DHG PROFESIONAL BN9X9 4000-2",
+            "NAPKIN TALL FOLD ROYALTY RP-TFNIV R-2 DESIGN",
+            "NAPKIN TALLFOLD CLEAN & COMFORT 10268",
+            "NAPKIN DINNER TRUVAI SUPPLY DN141-E",
+            "NP DINNER ROYALTY PREMIER RP-DN17173V",
+            "BEVERAGE NAPKIN ROYALTY RE-BN30002K",
+            "NP COCKTAIL ROYALTY RP-BN3000WQ",
+            "SMALL CORE TOILET TPV-SC1000",
+            "TL SMALL CORE AMSTAR AMSJICT",
+            "TL SMALL CORE ROYALTY PREM-SC2425001 R-2",
+            "TL SMALL CORE SOCIETY HILL SVHMC1000VP",
+            "TOILET ROLL BELFAIR 94009",
+            "TOILET ROLL COUPANG 30/1 R-1",
+            "TOILET ROLL INDOMARET 238S 8IN1 SUN1",
+            "TOILET ROLL MILESTONE 1200'2 FSC",
+            "HANDTOWEL COMPACT LUV 150S",
+            "HANDTOWEL BETHEL RCY WHITE MF-4000B",
+            "HANDTOWEL M FOLD BETHEL 250S MF-4000N",
+            "HANDTOWEL M-FOLD BETHEL 250'S MFP-4000W",
+            "HANDTOWEL MORCON R720 R-1",
+            "M-FOLD CLOUD COMFORT MF4000W WHITE",
+            "M-FOLD DHG BROWN MFT-4000K",
+            "M-FOLD DHG WHITE MFT-4000W",
+            "M-FOLD MOSAIC KRAFT MPP-2609-7131",
+            "M-FOLD ROYALTY PREMIER RE-MFT-K R-1",
+            "HANDTOWEL M-FOLD CLEAN & COMFORT 30488",
+            "HANDTOWEL M-FOLD NASSCO N-02782",
+            "HANDTOWEL SLIMFOLD ENTICE R2-460 COC FSC",
+            "HANDTOWEL SLIMFOLD LUV 250S",
+            "HTW M-FOLD METRO SOURCE WHITE PT-MFW",
+            "M FOLD VP M-P-08100 MAADHO",
+            "MULTIFOLD TOWEL TRUVAI SUPPLY MF131",
+            "HANDTOWEL ROYALTY EARTH 250'S RE-XPNK R-1",
+            "HTW SOFTPACK PURE PIECE 110'S 6/1 BDL R2",
+            "INTERFOLD NAPKIN TRUVAI SUPPLY XN222",
+            "INTERFOLD NP VP SMART SM2PIWN 18GSM R-1",
+            "INTERFOLD NAPKIN BROWN VALAY 5300VN R-1",
+            "INTERFOLD NAPKIN WHITE 250S RP-XPNV R1",
+            "INTERFOLD NP BROWN VALAY 5300VN R-2",
+            "INTERFOLD NAPKIN BROWN OLD GLORY 6000694",
+            "INTERFOLD NAPKIN MORCON 4545VN R-1",
+            "INTERFOLD NAPKIN NOVA QS4300 500'S R-2",
+            "INTERFOLD NP VP 4500VN 18GSM R-2",
+            "NP V-FOLD BROWN 5000VN 19GSM MORCON R-2",
+            "INTERFOLD NAPKIN SMPLY PRO TWX250 KRAFT",
+            "SINGLE FOLD TOWEL BROWN LJA 250S",
+            "SINGLEFOLD SUNNY CARE BROWN 5402 R-1",
+            "V-FOLD ROYALTY EARTH RE-SFT-K",
+            "HANDTOWEL MORCON VT1106 TW 34 GSM R-1",
+            "HANDTOWEL MORCON VT1106-TW 34 GSM",
+            "HTW SLIMFOLD LUSH 200S FSC-40004L",
+            "HANDTOWEL ULTRASLIM LUV 150S"
+        ];
+
+        const powerData = {
+            "FC118": 47.1, "FC121": 76.38, "FC122": 89.34, "FC103": 47.1, "FC108": 48.01,
+            "TW412": 45.5, "JRT06": 37.8, "JRT05": 38.5, "TL204": 42.0, "HRT001": 35.0
+        };
+
+        const unitList = [
+            "ABS", "ACCUMULATOR", "AUTO BANDSAW (CORENEW)", "AUTO BANDSAW (ZHIHONG)", "BANDSAW", 
+            "BORDER EMBOSS & PRINTING", "BUNDLE", "CARTON SEALER", "COMPRESS", "CONVEYOR", 
+            "EMBOSSER", "FC BOX", "FOLDING", "HANGER", "INK PRINTER", "INNERBOX", 
+            "INTERFOLD", "LAMINASI", "LOGSAW", "LOGSAW (OK)", "LOGSAW DCY LAMA", 
+            "LOGSAW DECHANGYU (LS 024)", "MANUAL BANDSAW", "MBS", "MEJA PRESS", 
+            "METAL DETECTOR", "MIDSEND", "OVERTURN", "PACKAGING", "PACKAGING OK", 
+            "PAPER CORE", "PELIPAT", "PENDORONG", "PENGGERAK UTAMA", "PERFORASI", 
+            "REWINDER", "ROBOT", "ROTARY", "ROTOR VACUUM BELT", "SLITTER", "TRANSFER UNIT", 
+            "UNWINDER", "VACUUM"
+        ];
+
+        const tarifKwh = 996.74;
+
+        let machineData = {};
+        let currentMachine = "";
+
+        let workOrders = { manual: [], preventive: [], predictive: [] };
+        let currentWoTab = 'manual';
+
+        let logbookData = [];
+        let shoData = [];
+
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            sidebar.classList.toggle('show');
+            overlay.classList.toggle('show');
+        }
+
+        function getCurrentShiftInfo() {
+            let hour = new Date().getHours();
+            if (hour >= 7 && hour < 15) return "Shift 1 (07:00 - 15:00)";
+            if (hour >= 15 && hour < 23) return "Shift 2 (15:00 - 23:00)";
+            return "Shift 3 (23:00 - 07:00)";
+        }
+
+        function buildInitialMachineData() {
+            rawMachineList.forEach(m => {
+                let id = m.toUpperCase();
+                let proc = [];
+                let fullName = "Line " + id;
+
+                if (id.startsWith("NP") || id.startsWith("FC") || id.startsWith("TW")) {
+                    proc = ['Unwinder', 'Emboss', 'Folding', 'Bandsaw'];
+                    if (id.startsWith("NP")) fullName += " (Napkin)";
+                    if (id.startsWith("FC")) fullName += " (Facial)";
+                    if (id.startsWith("TW")) fullName += " (Towel)";
+                } else if (id.startsWith("JRT") || id.startsWith("HRT")) {
+                    proc = ['Unwinder', 'Emboss', 'Rewinder', 'Logsaw'];
+                    if (id.startsWith("JRT")) fullName += " (Jumbo Roll)";
+                    if (id.startsWith("HRT")) fullName += " (Hand Roll)";
+                } else if (id.startsWith("TL")) {
+                    proc = ['Unwinder', 'Emboss', 'Folding', 'Logsaw'];
+                    fullName += " (Towel Line)";
+                } else {
+                    proc = ['Unwinder', 'Emboss', 'Main Process', 'Cutting'];
+                }
+
+                let charCodeSum = 0;
+                for(let i=0; i<id.length; i++) charCodeSum += id.charCodeAt(i);
+                let initialRunDays = (charCodeSum % 40); 
+                let randomProduct = productList[Math.floor(Math.random() * (productList.length - 1)) + 1];
+                let powerKw = powerData[id] || (Math.random() * 20 + 30).toFixed(2);
+
+                machineData[id] = { 
+                    name: fullName, 
+                    processes: proc,
+                    runningDays: initialRunDays,
+                    currentProduct: randomProduct,
+                    powerKw: parseFloat(powerKw),
+                    activeSecondsThisShift: 0, 
+                    breakdown: {
+                        isActive: false,
+                        category: null,
+                        startTime: null,
+                        accumulated: {
+                            production: 0,
+                            maintenance: 0,
+                            ppic: 0
+                        }
+                    }
+                };
+            });
+        }
+
+        let bdChartInstance;
+
+        function syncBreakdownMachine() {
+            currentMachine = document.getElementById('bd-machine-select').value;
+            document.getElementById('machine-select').value = currentMachine;
+            refreshDashboardUI();
+            updateBreakdownUI();
+        }
+
+        function startBreakdown(category) {
+            let mData = machineData[currentMachine];
+            if(mData.breakdown.isActive) return alert("Selesaikan breakdown sebelumnya terlebih dahulu!");
+
+            mData.breakdown.isActive = true;
+            mData.breakdown.category = category;
+            mData.breakdown.startTime = new Date();
+            
+            mData.currentProduct = "MESIN BREAKDOWN - " + category.toUpperCase();
+
+            updateBreakdownUI();
+            refreshDashboardUI(); 
+            if(document.getElementById('page-production').classList.contains('active')) renderProductionTable();
+        }
+
+        function stopBreakdown() {
+            let mData = machineData[currentMachine];
+            if(!mData.breakdown.isActive) return alert("Mesin tidak sedang dalam status breakdown.");
+
+            let elapsedSec = Math.floor((new Date() - mData.breakdown.startTime) / 1000);
+            mData.breakdown.accumulated[mData.breakdown.category] += elapsedSec;
+
+            mData.breakdown.isActive = false;
+            mData.breakdown.category = null;
+            mData.breakdown.startTime = null;
+
+            mData.currentProduct = "IDLE / TIDAK PRODUKSI";
+
+            updateBreakdownUI();
+            refreshDashboardUI();
+            if(document.getElementById('page-production').classList.contains('active')) renderProductionTable();
+            alert("Breakdown selesai. Waktu downtime telah diakumulasikan!");
+        }
+
+        function updateBreakdownUI() {
+            if(!document.getElementById('page-kpi-oee').classList.contains('active')) return;
+
+            let mData = machineData[currentMachine];
+            let bd = mData.breakdown;
+            document.getElementById('bd-spesific-name').innerText = mData.name;
+
+            let statusEl = document.getElementById('bd-status-indicator');
+            if(bd.isActive) {
+                statusEl.innerText = `STATUS: BREAKDOWN (${bd.category.toUpperCase()})`;
+                statusEl.style.background = '#ef4444';
+                statusEl.style.color = '#fff';
+                document.getElementById('bd-timer').classList.add('blink');
+            } else {
+                statusEl.innerText = `STATUS: AMAN BEROPERASI`;
+                statusEl.style.background = '#10b981';
+                statusEl.style.color = '#fff';
+                document.getElementById('bd-timer').classList.remove('blink');
+                document.getElementById('bd-timer').innerText = "00:00:00";
+            }
+
+            let totalGlobalProd = 0;
+            let totalGlobalMaint = 0;
+            let totalGlobalPpic = 0;
+            
+            rawMachineList.forEach(id => {
+                let m = machineData[id];
+                totalGlobalProd += m.breakdown.accumulated.production;
+                totalGlobalMaint += m.breakdown.accumulated.maintenance;
+                totalGlobalPpic += m.breakdown.accumulated.ppic;
+            });
+
+            let gbProdM = (totalGlobalProd / 60).toFixed(1);
+            let gbMaintM = (totalGlobalMaint / 60).toFixed(1);
+            let gbPpicM = (totalGlobalPpic / 60).toFixed(1);
+
+            document.getElementById('global-val-prod').innerText = `${gbProdM}`;
+            document.getElementById('global-val-maint').innerText = `${gbMaintM}`;
+            document.getElementById('global-val-ppic').innerText = `${gbPpicM}`;
+
+            let mProd = (bd.accumulated.production / 60).toFixed(1);
+            let mMaint = (bd.accumulated.maintenance / 60).toFixed(1);
+            let mPpic = (bd.accumulated.ppic / 60).toFixed(1);
+
+            document.getElementById('val-bd-prod').innerText = `${mProd} m`;
+            document.getElementById('val-bd-maint').innerText = `${mMaint} m`;
+            document.getElementById('val-bd-ppic').innerText = `${mPpic} m`;
+
+            updateBreakdownChart(gbProdM, gbMaintM, gbPpicM);
+        }
+
+        setInterval(() => {
+            if(!document.getElementById('page-kpi-oee').classList.contains('active')) return;
+            let mData = machineData[currentMachine];
+            if(mData && mData.breakdown.isActive) {
+                let elapsedSec = Math.floor((new Date() - mData.breakdown.startTime) / 1000);
+                let h = Math.floor(elapsedSec / 3600).toString().padStart(2, '0');
+                let m = Math.floor((elapsedSec % 3600) / 60).toString().padStart(2, '0');
+                let s = (elapsedSec % 60).toString().padStart(2, '0');
+                document.getElementById('bd-timer').innerText = `${h}:${m}:${s}`;
+            }
+        }, 1000);
+
+        function initBreakdownChart() {
+            const ctx = document.getElementById('breakdownChart').getContext('2d');
+            bdChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Production', 'Maintenance', 'PPIC'],
+                    datasets: [{
+                        data: [0, 0, 0],
+                        backgroundColor: ['#3b82f6', '#ef4444', '#8b5cf6'],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { position: 'right' } }
+                }
+            });
+        }
+
+        function updateBreakdownChart(prod, maint, ppic) {
+            if(bdChartInstance) {
+                bdChartInstance.data.datasets[0].data = [parseFloat(prod), parseFloat(maint), parseFloat(ppic)];
+                bdChartInstance.update();
+            }
+        }
+
+        function getProcessRemainingLife(machineId, processName) {
+            let charCodeSum = 0;
+            let combined = machineId + processName;
+            for(let i=0; i<combined.length; i++) charCodeSum += combined.charCodeAt(i);
+            return (charCodeSum % 40) + 1; 
+        }
+
+        function autoCheckWO() {
+            let kritisKomponen = 0;
+            let pmMesin = 0;
+
+            rawMachineList.forEach(machineId => {
+                let mData = machineData[machineId];
+                let runDays = mData.runningDays;
+                if (runDays >= 35) {
+                    pmMesin++;
+                    let exists = workOrders.preventive.find(wo => wo.machine === machineId);
+                    if (!exists) {
+                        workOrders.preventive.push({
+                            id: 'WO-PM-' + Math.floor(Math.random() * 9000 + 1000),
+                            machine: machineId,
+                            task: `[Jadwal PM] Mesin sudah berjalan ${runDays} Hari. Lakukan revisi total / preventive maintenance keseluruhan.`,
+                            status: 'Menunggu Eksekusi'
+                        });
+                    }
+                }
+
+                mData.processes.forEach(proc => {
+                    let life = getProcessRemainingLife(machineId, proc);
+                    if (life <= 5) {
+                        kritisKomponen++;
+                        let exists = workOrders.predictive.find(wo => wo.machine === machineId && wo.process === proc);
+                        if (!exists) {
+                            workOrders.predictive.push({
+                                id: 'WO-PD-' + Math.floor(Math.random() * 9000 + 1000),
+                                machine: machineId,
+                                process: proc,
+                                task: `[AI Alert] Sisa umur prediksi komponen ${proc} tinggal ${life} Hari! Berisiko breakdown, jadwalkan pergantian part.`,
+                                status: 'Menunggu Eksekusi'
+                            });
+                        }
+                    }
+                });
+            });
+
+            if(document.getElementById('kpi-pm')) document.getElementById('kpi-pm').innerText = pmMesin;
+            if(document.getElementById('kpi-kritis')) document.getElementById('kpi-kritis').innerText = kritisKomponen;
+            renderWoUI();
+        }
+
+        setInterval(() => {
+            rawMachineList.forEach(id => {
+                let mData = machineData[id];
+                let isRunning = !mData.currentProduct.includes("IDLE") && !mData.currentProduct.includes("BREAKDOWN");
+                if(isRunning) {
+                    mData.activeSecondsThisShift += 1; 
+                }
+            });
+
+            if(document.getElementById('page-production').classList.contains('active')) {
+                renderProductionTable();
+            } else if(document.getElementById('page-electricity').classList.contains('active')) {
+                renderElectricityTable();
+            }
+
+        }, 1000);
+
+        function formatTime(totalSeconds) {
+            let h = Math.floor(totalSeconds / 3600);
+            let m = Math.floor((totalSeconds % 3600) / 60);
+            let s = totalSeconds % 60;
+            return `${h}h ${m}m ${s}s`;
+        }
+
+        function formatRupiah(angka) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+        }
+
+        function renderProductionTable() {
+            const tbodyProd = document.getElementById('db-production-body');
+            tbodyProd.innerHTML = '';
+            document.getElementById('production-shift-display').innerText = getCurrentShiftInfo();
+
+            rawMachineList.forEach(id => {
+                let mData = machineData[id];
+                let isIdleOrBd = mData.currentProduct.includes("IDLE") || mData.currentProduct.includes("BREAKDOWN");
+                let badgeStyle = isIdleOrBd ? 'background-color: var(--danger); color: white;' : '';
+
+                tbodyProd.innerHTML += `<tr>
+                    <td><strong>${id}</strong></td>
+                    <td>${mData.name}</td>
+                    <td><span class="product-badge" style="${badgeStyle}">${mData.currentProduct}</span></td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-outline" onclick="openProductionModal('${id}')"><i class="fa-solid fa-pen-to-square"></i> Set Produk</button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        function renderElectricityTable() {
+            const tbodyElec = document.getElementById('db-electricity-body');
+            tbodyElec.innerHTML = '';
+            
+            let totalFactoryKwh = 0;
+            let totalFactoryCost = 0;
+
+            rawMachineList.forEach(id => {
+                let mData = machineData[id];
+                let isIdleOrBd = mData.currentProduct.includes("IDLE") || mData.currentProduct.includes("BREAKDOWN");
+                
+                let hoursActive = mData.activeSecondsThisShift / 3600;
+                let estimatedKwh = mData.powerKw * hoursActive;
+                totalFactoryKwh += estimatedKwh;
+
+                let costMesin = estimatedKwh * tarifKwh;
+                totalFactoryCost += costMesin;
+
+                let statusLed = isIdleOrBd ? '<i class="fa-solid fa-circle" style="color:var(--danger); font-size:0.6em;"></i> Mati/Idle' : '<i class="fa-solid fa-circle" style="color:var(--success); font-size:0.6em;"></i> Menyala';
+
+                tbodyElec.innerHTML += `<tr>
+                    <td><strong>${id}</strong></td>
+                    <td>${statusLed}</td>
+                    <td>${mData.powerKw} kW</td>
+                    <td style="text-align: center; font-family: monospace; font-size: 1.1em;">${formatTime(mData.activeSecondsThisShift)}</td>
+                    <td style="text-align: center; color: var(--accent-color); font-weight: bold;">${estimatedKwh.toFixed(2)}</td>
+                    <td style="text-align: right; color: var(--danger); font-weight: bold;">${formatRupiah(costMesin)}</td>
+                </tr>`;
+            });
+
+            document.getElementById('total-factory-kwh').innerText = totalFactoryKwh.toFixed(2);
+            document.getElementById('total-factory-cost').innerText = formatRupiah(totalFactoryCost);
+        }
+
+        function openProductionModal(machineId) {
+            document.getElementById('inputProdMachineId').value = machineId;
+            let sel = document.getElementById('inputProdSelect');
+            sel.innerHTML = '';
+            productList.forEach(prod => {
+                let isSelected = (machineData[machineId].currentProduct === prod) ? 'selected' : '';
+                sel.innerHTML += `<option value="${prod}" ${isSelected}>${prod}</option>`;
+            });
+            document.getElementById('updateProductionModal').classList.add('active');
+        }
+
+        function saveProductionUpdate() {
+            let machineId = document.getElementById('inputProdMachineId').value;
+            let selectedProduct = document.getElementById('inputProdSelect').value;
+            
+            if(machineData[machineId].breakdown.isActive) {
+                alert("Mesin sedang Breakdown! Selesaikan Breakdown di menu KPI Parameter terlebih dahulu.");
+                return;
+            }
+
+            machineData[machineId].currentProduct = selectedProduct;
+            closeModal('updateProductionModal');
+            if(document.getElementById('page-production').classList.contains('active')) renderProductionTable();
+            refreshDashboardUI(); 
+            alert(`Produksi Line ${machineId} berhasil diupdate menjadi: ${selectedProduct}`);
+        }
+
+        function switchWoTab(tab) {
+            currentWoTab = tab;
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById('tab-' + tab).classList.add('active');
+            
+            document.getElementById('btn-add-wo').style.display = (tab === 'manual') ? 'block' : 'none';
+            renderWoUI();
+        }
+
+        function renderWoUI() {
+            let countM = workOrders.manual.length;
+            let countPrev = workOrders.preventive.length;
+            let countPred = workOrders.predictive.length;
+            let total = countM + countPrev + countPred;
+
+            document.getElementById('badge-manual').innerText = countM;
+            document.getElementById('badge-preventive').innerText = countPrev;
+            document.getElementById('badge-predictive').innerText = countPred;
+
+            let sbBadge = document.getElementById('sidebar-wo-badge');
+            if (total > 0) {
+                sbBadge.style.display = 'inline-block';
+                sbBadge.innerText = total;
+            } else {
+                sbBadge.style.display = 'none';
+            }
+
+            if(document.getElementById('page-work-orders').classList.contains('active')) {
+                let container = document.getElementById('wo-container');
+                container.innerHTML = '';
+                let list = workOrders[currentWoTab];
+
+                if(list.length === 0) {
+                    container.innerHTML = `<p style="color:#94a3b8; font-style:italic; padding: 20px;">Tidak ada Work Order ${currentWoTab} saat ini.</p>`;
+                    return;
+                }
+
+                list.forEach((wo, index) => {
+                    let borderColor = 'var(--accent-color)';
+                    if(currentWoTab === 'preventive') borderColor = 'var(--warning)';
+                    if(currentWoTab === 'predictive') borderColor = 'var(--danger)';
+
+                    let title = wo.machine;
+                    if(currentWoTab === 'predictive') title += ` - AI Alert (${wo.process})`;
+                    else if(currentWoTab === 'preventive') title += ` - Schedule PM`;
+                    else title += ` - Operator Request`;
+
+                    let card = `
+                    <div class="wo-card" style="border-top: 4px solid ${borderColor};">
+                        <div>
+                            <div class="wo-card-header">
+                                <span>${title}</span>
+                                <span style="font-size:0.8em; color:#94a3b8;">${wo.id}</span>
+                            </div>
+                            <div class="wo-card-body" style="white-space: pre-line;">${wo.task}</div>
+                        </div>
+                        <div class="wo-card-footer">
+                            <button class="btn btn-success" onclick="selesaikanWO('${currentWoTab}', ${index})">
+                                <i class="fa-solid fa-check"></i> Eksekusi Selesai
+                            </button>
+                        </div>
+                    </div>`;
+                    container.innerHTML += card;
+                });
+            }
+        }
+
+        function selesaikanWO(type, index) {
+            if(confirm("Tandai Work Order ini telah selesai dieksekusi oleh teknisi?")) {
+                let completedWo = workOrders[type][index];
+                if (type === 'preventive') {
+                    machineData[completedWo.machine].runningDays = 0;
+                }
+                workOrders[type].splice(index, 1);
+                autoCheckWO();
+                renderDatabaseTable();
+                if(currentMachine === completedWo.machine) refreshDashboardUI();
+            }
+        }
+
+        function toggleWoMachineManual() {
+            let val = document.getElementById('inputWoMachine').value;
+            if(val === 'Lainnya') {
+                document.getElementById('inputWoMachineManual').style.display = 'block';
+            } else {
+                document.getElementById('inputWoMachineManual').style.display = 'none';
+            }
+        }
+
+        function saveManualWo() {
+            let mac = document.getElementById('inputWoMachine').value;
+            
+            if (mac === 'Lainnya') {
+                mac = document.getElementById('inputWoMachineManual').value.trim();
+            }
+            
+            let dept = document.getElementById('inputWoDept').value;
+            let deadline = document.getElementById('inputWoDeadline').value;
+            let desc = document.getElementById('inputWoDesc').value.trim();
+            
+            if(!mac || !dept || !deadline || !desc) {
+                return alert("Pilih mesin, departemen requestor, deadline, dan isi deskripsi keluhan terlebih dahulu!");
+            }
+
+            let newTask = `[Req: ${dept}] | Deadline: ${deadline}\nKeluhan: ${desc}`;
+
+            let woEntry = {
+                id: 'WO-M-' + Math.floor(Math.random() * 9000 + 1000),
+                machine: mac,
+                task: newTask,
+                status: 'Menunggu Eksekusi',
+                dept: dept,         
+                deadline: deadline, 
+                desc: desc          
+            };
+
+            workOrders.manual.push(woEntry);
+            
+            syncToGoogleSheets("addWo", woEntry);
+
+            closeModal('addWoModal');
+            renderWoUI();
+            alert("Work Order Manual berhasil dibuat dan data siap dikirim!");
+        }
+
+        function toggleUnitManual() {
+            let val = document.getElementById('logUnit').value;
+            if(val === 'Lainnya') {
+                document.getElementById('logUnitManual').style.display = 'block';
+            } else {
+                document.getElementById('logUnitManual').style.display = 'none';
+            }
+        }
+
+        function calcLogbookTime() {
+            let start = document.getElementById('logMulai').value;
+            let end = document.getElementById('logSelesai').value;
+
+            if(start && end) {
+                let startTime = new Date(`1970-01-01T${start}:00`);
+                let endTime = new Date(`1970-01-01T${end}:00`);
+                
+                let diffMs = endTime - startTime;
+                if(diffMs < 0) {
+                    diffMs += 24 * 60 * 60 * 1000; 
+                }
+                let diffMins = Math.round(diffMs / 60000);
+                document.getElementById('logTotalWaktu').value = diffMins;
+            }
+        }
+
+        function saveLogbook() {
+            let tgl = document.getElementById('logTanggal').value;
+            let shift = document.getElementById('logShift').value;
+            let mesin = document.getElementById('logMesin').value;
+            
+            let unit = document.getElementById('logUnit').value;
+            if(unit === 'Lainnya') {
+                unit = document.getElementById('logUnitManual').value.trim();
+            }
+
+            let masalah = document.getElementById('logMasalah').value.trim();
+            let penyebab = document.getElementById('logPenyebab').value.trim();
+            let kategori = document.getElementById('logKategori').value.trim();
+            let tindakan = document.getElementById('logTindakan').value.trim();
+            let mulai = document.getElementById('logMulai').value;
+            let selesai = document.getElementById('logSelesai').value;
+            let totalWaktu = document.getElementById('logTotalWaktu').value;
+            let hm = document.getElementById('logHourMeter').value || "-";
+            let gantiPart = document.getElementById('logGantiPart').value.trim() || "-";
+            let placement = document.getElementById('logPlacement').value.trim() || "-";
+            let subPlacement = document.getElementById('logSubPlacement').value.trim() || "-";
+            let statusPekerjaan = document.getElementById('logStatus').value;
+            
+            if(!tgl || !mesin || !unit || !masalah || !kategori || !mulai || !selesai) {
+                return alert("Mohon lengkapi data Tanggal, Mesin, Unit, Kategori, Masalah, dan Waktu Pengerjaan!");
+            }
+
+            let logEntry = {
+                tanggal: tgl,
+                shift: shift,
+                mesin: mesin,
+                unit: unit,
+                masalah: masalah,
+                penyebab: penyebab,
+                kategori: kategori,
+                tindakan: tindakan,
+                mulai: mulai,
+                selesai: selesai,
+                durasi: totalWaktu,
+                hm: hm,
+                part: gantiPart,
+                placement: placement,
+                subPlace: subPlacement,
+                status: statusPekerjaan,
+                timestamp: new Date().toISOString()
+            };
+
+            logbookData.unshift(logEntry);
+            syncToGoogleSheets("addLogbook", logEntry); // SEND DATA
+
+            closeModal('addLogbookModal');
+            renderLogbookTable();
+            alert("Laporan Logbook berhasil disimpan dan dikirim!");
+        }
+
+        function renderLogbookTable() {
+            const tbody = document.getElementById('db-logbook-body');
+            tbody.innerHTML = '';
+
+            if(logbookData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="16" style="text-align: center; color: #94a3b8; font-style: italic; padding: 20px;">Belum ada history perbaikan / data logbook...</td></tr>`;
+                return;
+            }
+
+            logbookData.forEach(log => {
+                let statusBg = log.status === 'Selesai' ? 'var(--success)' : 'var(--warning)';
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${log.tanggal}</td>
+                        <td>Shift ${log.shift}</td>
+                        <td><strong>${log.mesin}</strong></td>
+                        <td>${log.unit}</td>
+                        <td>${log.masalah}</td>
+                        <td>${log.penyebab}</td>
+                        <td><span style="font-size:0.85em; background:#f1f5f9; padding:4px 8px; border-radius:4px; border:1px solid #cbd5e1;">${log.kategori}</span></td>
+                        <td>${log.tindakan}</td>
+                        <td>${log.mulai}</td>
+                        <td>${log.selesai}</td>
+                        <td style="text-align: center; font-weight: bold; color: var(--danger);">${log.durasi} Min</td>
+                        <td>${log.hm}</td>
+                        <td>${log.part}</td>
+                        <td>${log.placement}</td>
+                        <td>${log.subPlace}</td>
+                        <td style="text-align: center;">
+                            <span style="padding: 4px 10px; border-radius: 6px; font-size: 0.85em; font-weight: bold; background: ${statusBg}; color: white;">
+                                ${log.status}
+                            </span>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function autoFillSho() {
+            let shift = document.getElementById('shoShift').value;
+            let findings = logbookData.filter(l => l.shift === shift).map(l => `* [${l.mesin}] ${l.masalah}`).join("\n");
+            let pendings = logbookData.filter(l => l.shift === shift && l.status === 'Pending Job').map(l => `* [${l.mesin}] ${l.masalah}`).join("\n");
+            
+            document.getElementById('shoFinding').value = findings || "-";
+            document.getElementById('shoPending').value = pendings || "-";
+        }
+
+   function saveSho() {
+            let tgl = document.getElementById('shoTanggal').value;
+            let shiftAwal = document.getElementById('shoShift').value;
+            let shiftLanjut = document.getElementById('shoShiftNext').value;
+            let tekAwal = document.getElementById('shoTeknisi').value.trim();
+            let tekLanjut = document.getElementById('shoTeknisiNext').value.trim();
+            let finding = document.getElementById('shoFinding').value.trim();
+            let pending = document.getElementById('shoPending').value.trim();
+            let tools = document.getElementById('shoTools').value;
+
+            if(!tgl || !tekAwal || !tekLanjut) return alert("Tanggal dan Nama Teknisi (Shift Selesai & Penerima) wajib diisi!");
+
+            // PERBAIKAN: Hapus penggabungan Shift & Nama yang bikin kacau di WA
+            // Kita pisah jadi variabel murni agar Google Apps Script yang merakit teks WA-nya
+            let shoEntry = {
+                tanggal: tgl,
+                shift: shiftAwal,
+                teknisi: tekAwal,           // Murni hanya nama
+                shift_lanjut: shiftLanjut,
+                teknisi_lanjut: tekLanjut,  // Murni hanya nama
+                finding: finding,
+                pending: pending,
+                tools: tools,
+                timestamp: new Date().toISOString()
+            };
+
+            shoData = []; 
+            shoData.unshift(shoEntry); 
+
+            logbookData = []; 
+
+            syncToGoogleSheets("addSho", shoEntry); 
+
+            closeModal('addShoModal');
+            
+            renderShoTable();
+            renderLogbookTable(); 
+            
+            alert("Laporan Shift Handover (SHO) Berhasil Disimpan! Layar Logbook telah dibersihkan untuk shift berikutnya.");
+        }
+
+        function renderShoTable() {
+            const tbody = document.getElementById('db-sho-body');
+            tbody.innerHTML = '';
+            if(shoData.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #94a3b8; font-style: italic; padding: 20px;">Belum ada Laporan SHO...</td></tr>`;
+                return;
+            }
+            shoData.forEach(s => {
+                let toolsColor = s.tools.includes('LENGKAP') ? 'var(--success)' : 'var(--danger)';
+                
+                let htmlTeknisi = s.teknisi.replace(/\n/g, '<br>').replace(/\*/g, '');
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${s.tanggal} <br><strong>(Shift ${s.shift})</strong></td>
+                        <td><strong>${htmlTeknisi}</strong></td>
+                        <td style="white-space: pre-line;">${s.finding}</td>
+                        <td style="white-space: pre-line; color: var(--danger); font-weight: 500;">${s.pending}</td>
+                        <td style="text-align: center; color:${toolsColor}; font-weight:bold;">${s.tools}</td>
+                    </tr>
+                `;
+            });
+        }
+
+        function switchPage(pageId) {
+            document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'));
+            document.querySelectorAll('.nav-links li').forEach(l => l.classList.remove('active'));
+            
+            document.getElementById('page-' + pageId).classList.add('active');
+            document.getElementById('nav-' + pageId).classList.add('active');
+
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebarOverlay');
+            if(window.innerWidth <= 768) {
+                sidebar.classList.remove('show');
+                overlay.classList.remove('show');
+            }
+
+            if(pageId === 'dashboard') {
+                document.getElementById('topbar-title').innerText = "Condition Based Monitoring";
+                refreshDashboardUI();
+            } else if (pageId === 'machine-list') {
+                document.getElementById('topbar-title').innerText = "Manajemen Database Mesin";
+                renderDatabaseTable(); 
+            } else if (pageId === 'work-orders') {
+                document.getElementById('topbar-title').innerText = "Manajemen Work Order (WO)";
+                renderWoUI();
+            } else if (pageId === 'production') {
+                document.getElementById('topbar-title').innerText = "Manajemen Lini Produksi & Shift";
+                renderProductionTable();
+            } else if (pageId === 'kpi-oee') {
+                document.getElementById('topbar-title').innerText = "Input & Analisa KPI (OEE & Breakdown)";
+                let sel = document.getElementById('bd-machine-select');
+                sel.innerHTML = '';
+                rawMachineList.forEach(id => {
+                    sel.innerHTML += `<option value="${id}">${machineData[id].name}</option>`;
+                });
+                sel.value = currentMachine;
+                updateBreakdownUI();
+            } else if (pageId === 'electricity') {
+                document.getElementById('topbar-title').innerText = "Finansial & Cost Konsumsi Listrik Pabrik";
+                renderElectricityTable();
+            } else if (pageId === 'logbook') {
+                document.getElementById('topbar-title').innerText = "Catatan Logbook Technician & SHO";
+                renderLogbookTable();
+                renderShoTable();
+            } else if (pageId === 'schedule') {
+                /* TAMBAHAN: Load data saat pindah ke halaman Schedule */
+                document.getElementById('topbar-title').innerText = "Schedule Produksi & Parameter";
+                initSchedulePage();
+            }
+        }
+
+        function openModal(modalId) { 
+            document.getElementById(modalId).classList.add('active'); 
+            if (modalId === 'addWoModal') {
+                let sel = document.getElementById('inputWoMachine');
+                sel.innerHTML = '<option value="">-- Pilih Mesin --</option>';
+                rawMachineList.forEach(id => {
+                    sel.innerHTML += `<option value="${id}">${machineData[id].name}</option>`;
+                });
+                sel.innerHTML += '<option value="Lainnya">Lainnya (Ketik Manual)</option>';
+                
+                document.getElementById('inputWoMachineManual').style.display = 'none';
+                document.getElementById('inputWoMachineManual').value = '';
+                document.getElementById('inputWoDept').value = '';
+                document.getElementById('inputWoDeadline').value = '';
+                document.getElementById('inputWoDesc').value = '';
+
+            } else if (modalId === 'addLogbookModal') {
+                document.getElementById('logTanggal').valueAsDate = new Date();
+                
+                let selMesin = document.getElementById('logMesin');
+                selMesin.innerHTML = '';
+                rawMachineList.forEach(id => {
+                    selMesin.innerHTML += `<option value="${id}">${id}</option>`;
+                });
+
+                let selUnit = document.getElementById('logUnit');
+                selUnit.innerHTML = '<option value="">-- Pilih Unit --</option>';
+                unitList.forEach(u => {
+                    selUnit.innerHTML += `<option value="${u}">${u}</option>`;
+                });
+                selUnit.innerHTML += '<option value="Lainnya">Lainnya (Ketik Manual)</option>';
+                
+                document.getElementById('logUnitManual').style.display = 'none';
+                document.getElementById('logUnitManual').value = '';
+
+                document.getElementById('logMasalah').value = '';
+                document.getElementById('logPenyebab').value = '';
+                document.getElementById('logKategori').value = '';
+                document.getElementById('logTindakan').value = '';
+                document.getElementById('logMulai').value = '';
+                document.getElementById('logSelesai').value = '';
+                document.getElementById('logTotalWaktu').value = '';
+                document.getElementById('logHourMeter').value = '';
+                document.getElementById('logGantiPart').value = '';
+                document.getElementById('logPlacement').value = '';
+                document.getElementById('logSubPlacement').value = '';
+            } else if (modalId === 'addShoModal') {
+                document.getElementById('shoTanggal').valueAsDate = new Date();
+                document.getElementById('shoTeknisi').value = '';
+                document.getElementById('shoTeknisiNext').value = ''; 
+                document.getElementById('shoTools').value = 'LENGKAP';
+                autoFillSho();
+            }
+        }
+        
+        function closeModal(modalId) { 
+            document.getElementById(modalId).classList.remove('active'); 
+            if(modalId === 'addMachineModal') {
+                document.getElementById('inputMachineId').value = '';
+                document.getElementById('inputMachineName').value = '';
+                document.querySelectorAll('.process-check').forEach(cb => cb.checked = false);
+            } else if(modalId === 'addWoModal') {
+                document.getElementById('inputWoMachine').value = '';
+                document.getElementById('inputWoDesc').value = '';
+            }
+        }
+
+        function renderDatabaseTable() {
+            const tbody = document.getElementById('db-machine-body');
+            tbody.innerHTML = '';
+            rawMachineList.forEach(id => {
+                let mData = machineData[id];
+                let lifeBadgeClass = 'life-good';
+                if(mData.runningDays >= 35) lifeBadgeClass = 'life-danger';
+                else if(mData.runningDays >= 25) lifeBadgeClass = 'life-warn';
+
+                tbody.innerHTML += `<tr>
+                    <td><strong>${id}</strong></td>
+                    <td>${mData.name}</td>
+                    <td>${mData.processes.join(', ')}</td>
+                    <td style="text-align: center;">
+                        <span class="life-badge ${lifeBadgeClass}">${mData.runningDays} Hari</span>
+                    </td>
+                    <td style="text-align: center;">
+                        <button class="btn btn-danger" onclick="deleteMachine('${id}')"><i class="fa-solid fa-trash"></i></button>
+                    </td>
+                </tr>`;
+            });
+        }
+
+        function saveNewMachine() {
+            let inputId = document.getElementById('inputMachineId').value.trim().toUpperCase();
+            let inputName = document.getElementById('inputMachineName').value.trim();
+            
+            if(!inputId || !inputName) return alert("ID Mesin dan Nama Mesin tidak boleh kosong!");
+            if(rawMachineList.includes(inputId)) return alert("Mesin ini sudah ada di database!");
+
+            let selectedProcesses = [];
+            document.querySelectorAll('.process-check:checked').forEach(cb => selectedProcesses.push(cb.value));
+            if(selectedProcesses.length === 0) return alert("Pilih minimal satu proses!");
+
+            let randomKw = parseFloat((Math.random() * 20 + 30).toFixed(2));
+
+            rawMachineList.unshift(inputId); 
+            machineData[inputId] = { 
+                name: inputName, 
+                processes: selectedProcesses, 
+                runningDays: 0,
+                currentProduct: "IDLE / TIDAK PRODUKSI",
+                powerKw: randomKw,
+                activeSecondsThisShift: 0,
+                breakdown: { isActive: false, category: null, startTime: null, accumulated: { production: 0, maintenance: 0, ppic: 0 } }
+            };
+            
+            refreshDashboardUI(); 
+            renderDatabaseTable(); 
+            if(document.getElementById('page-production').classList.contains('active')) renderProductionTable();
+            autoCheckWO(); 
+            closeModal('addMachineModal');
+        }
+
+        function deleteMachine(id) {
+            if(!confirm("Yakin ingin menghapus mesin " + id + "?")) return;
+            rawMachineList = rawMachineList.filter(m => m !== id); 
+            delete machineData[id];
+            
+            if(currentMachine === id && rawMachineList.length > 0) currentMachine = rawMachineList[0];
+
+            workOrders.manual = workOrders.manual.filter(wo => wo.machine !== id);
+            workOrders.preventive = workOrders.preventive.filter(wo => wo.machine !== id);
+            workOrders.predictive = workOrders.predictive.filter(wo => wo.machine !== id);
+
+            refreshDashboardUI();
+            renderDatabaseTable();
+            renderWoUI();
+            if(document.getElementById('page-production').classList.contains('active')) renderProductionTable();
+        }
+
+        function refreshDashboardUI() {
+            if(document.getElementById('kpi-total')) document.getElementById('kpi-total').innerText = rawMachineList.length;
+
+            const selectElement = document.getElementById('machine-select');
+            selectElement.innerHTML = '';
+            rawMachineList.forEach(id => {
+                selectElement.innerHTML += `<option value="${id}">${machineData[id].name}</option>`;
+            });
+            
+            if(rawMachineList.length > 0) {
+                if(!currentMachine || !rawMachineList.includes(currentMachine)) currentMachine = rawMachineList[0];
+                selectElement.value = currentMachine;
+                
+                document.getElementById('display-machine-name').innerText = currentMachine;
+                
+                let runDays = machineData[currentMachine].runningDays;
+                let dayColor = runDays >= 35 ? 'var(--danger)' : '#64748b';
+                document.getElementById('machine-run-days').innerHTML = `(Telah beroperasi: <span style="color:${dayColor}; font-weight:bold;">${runDays} Hari</span>)`;
+                
+                document.getElementById('dash-shift-info').innerText = getCurrentShiftInfo();
+                
+                let prod = machineData[currentMachine].currentProduct;
+                let prodEl = document.getElementById('dash-product-info');
+                prodEl.innerText = prod;
+                
+                if (prod.includes("IDLE") || prod.includes("BREAKDOWN")) {
+                    prodEl.style.color = 'var(--danger)';
+                } else {
+                    prodEl.style.color = 'var(--success)';
+                }
+
+            } else {
+                currentMachine = "";
+                document.getElementById('display-machine-name').innerText = "-";
+                document.getElementById('machine-run-days').innerText = "";
+                document.getElementById('dash-product-info').innerText = "-";
+            }
+            chartDataArus.fill(0); chartDataSuhu.fill(0); chartDataVib.fill(0);
+        }
+
+        function switchMachine() {
+            currentMachine = document.getElementById('machine-select').value;
+            refreshDashboardUI(); 
+            updateBreakdownUI(); 
+        }
+
+        let trendChart;
+        const maxDataPoints = 15; 
+        let timeLabels = Array(maxDataPoints).fill('');
+        let chartDataArus = Array(maxDataPoints).fill(0);
+        let chartDataSuhu = Array(maxDataPoints).fill(0);
+        let chartDataVib = Array(maxDataPoints).fill(0);
+
+        function initChart() {
+            const ctx = document.getElementById('trendChart').getContext('2d');
+            trendChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: timeLabels,
+                    datasets: [
+                        { label: 'Suhu Avg (°C)', borderColor: '#ef4444', backgroundColor: 'rgba(239, 68, 68, 0.1)', data: chartDataSuhu, tension: 0.4, fill: true, borderWidth: 2, pointRadius: 0, yAxisID: 'y' },
+                        { label: 'Arus Avg (A)', borderColor: '#3b82f6', backgroundColor: 'transparent', data: chartDataArus, tension: 0.4, borderWidth: 2, pointRadius: 0, yAxisID: 'y' },
+                        { label: 'Vibrasi Avg (mm/s)', borderColor: '#8b5cf6', backgroundColor: 'transparent', data: chartDataVib, tension: 0.4, borderWidth: 2, pointRadius: 0, borderDash: [5, 5], yAxisID: 'y1' }
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false, animation: { duration: 0 },
+                    plugins: { legend: { position: 'top' } },
+                    scales: {
+                        y: { type: 'linear', position: 'left', min: 0, max: 100, grid: { borderDash: [5, 5] } },
+                        y1: { type: 'linear', position: 'right', min: 0, max: 5, grid: { display: false } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+            initBreakdownChart(); 
+        }
+
+        function getRandom(min, max) { return parseFloat((Math.random() * (max - min) + min).toFixed(2)); }
+        function getStatusClass(val, type) {
+            if (type === 'temp') return val < 50 ? 'status-good' : (val < 65 ? 'status-warn' : 'status-danger');
+            if (type === 'vib') return val < 1.5 ? 'status-good' : (val < 2.5 ? 'status-warn' : 'status-danger');
+            return 'status-good';
+        }
+
+        function liveUpdateDashboard() {
+            if(document.getElementById('dash-shift-info')) {
+                document.getElementById('dash-shift-info').innerText = getCurrentShiftInfo();
+            }
+
+            if(document.getElementById('page-dashboard').classList.contains('active') === false || !currentMachine) return;
+
+            const tbody = document.getElementById('table-body');
+            tbody.innerHTML = '';
+            
+            let totalArus = 0, totalSuhu = 0, totalVib = 0;
+            const processes = machineData[currentMachine].processes;
+            
+            let isIdle = (machineData[currentMachine].currentProduct.includes("IDLE") || machineData[currentMachine].currentProduct.includes("BREAKDOWN"));
+
+            processes.forEach(process => {
+                let freq = isIdle ? 0 : getRandom(48.5, 50.5);
+                let current = isIdle ? 0 : getRandom(4.0, 15.0);
+                let temp = isIdle ? getRandom(28.0, 32.0) : getRandom(38.0, 68.0); 
+                let vib = isIdle ? 0 : getRandom(0.5, 2.8);
+                
+                let lifeDays = getProcessRemainingLife(currentMachine, process);
+                let lifeBadgeClass = 'life-good';
+                if (lifeDays <= 5) lifeBadgeClass = 'life-danger';
+                else if (lifeDays <= 15) lifeBadgeClass = 'life-warn';
+
+                totalArus += current; totalSuhu += temp; totalVib += vib;
+
+                let row = `<tr>
+                    <td><strong>${process}</strong></td>
+                    <td class="status-good">${freq}</td>
+                    <td class="status-good">${current}</td>
+                    <td class="${getStatusClass(temp, 'temp')}">${temp}</td>
+                    <td class="${getStatusClass(vib, 'vib')}">${vib}</td>
+                    <td><span class="life-badge ${lifeBadgeClass}">${lifeDays} Hr</span></td>
+                </tr>`;
+                tbody.innerHTML += row;
+            });
+
+            let avgArus = totalArus / processes.length;
+            let avgSuhu = totalSuhu / processes.length;
+            let avgVib = totalVib / processes.length;
+            
+            let now = new Date();
+            let timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0') + ':' + now.getSeconds().toString().padStart(2, '0');
+            
+            timeLabels.shift(); timeLabels.push(timeStr);
+            chartDataArus.shift(); chartDataArus.push(avgArus);
+            chartDataSuhu.shift(); chartDataSuhu.push(avgSuhu);
+            chartDataVib.shift(); chartDataVib.push(avgVib); 
+
+            trendChart.update();
+        }
+
+        /* TAMBAHAN: FUNGSI UNTUK HALAMAN SCHEDULE PRODUKSI */
+        function initSchedulePage() {
+            // Cek apakah file dataProduksi.js sudah ter-load dengan baik
+            if(typeof dataProduksi === 'undefined') {
+                console.warn("File dataProduksi.js belum ditemukan atau belum dimuat!");
+                return;
+            }
+
+            // Ekstrak nama mesin yang unik dari database
+            let machines = [...new Set(dataProduksi.map(item => item.NAMA_MESIN))];
+            
+            let selMac = document.getElementById('schedMachine');
+            selMac.innerHTML = '';
+            machines.forEach(m => {
+                selMac.innerHTML += `<option value="${m}">${m}</option>`;
+            });
+
+            // Jalankan update untuk memancing data produk pertama
+            updateScheduleProducts();
+        }
+
+        function updateScheduleProducts() {
+            let mac = document.getElementById('schedMachine').value;
+            
+            // Filter produk berdasarkan mesin yang dipilih
+            let prods = dataProduksi.filter(item => item.NAMA_MESIN === mac);
+            
+            let selProd = document.getElementById('schedProduct');
+            selProd.innerHTML = '';
+            prods.forEach(p => {
+                selProd.innerHTML += `<option value="${p.NAMA_PRODUK}">${p.NAMA_PRODUK}</option>`;
+            });
+
+            // Jalankan update detail
+            updateScheduleDetails();
+        }
+
+        function updateScheduleDetails() {
+            let mac = document.getElementById('schedMachine').value;
+            let prodName = document.getElementById('schedProduct').value;
+            
+            // Cari data spesifik berdasarkan mesin dan produk
+            let detail = dataProduksi.find(item => item.NAMA_MESIN === mac && item.NAMA_PRODUK === prodName);
+            
+            if(detail) {
+                document.getElementById('schedKodeMat').value = detail.KODE_MATERIAL;
+                document.getElementById('schedLebar').value = detail.LEBAR_JUMBO;
+                document.getElementById('schedT100').innerText = detail.TARGET_100;
+                document.getElementById('schedT70').innerText = detail.TARGET_70;
+                
+                // Pastikan ideal speed berformat angka desimal rapi
+                let speed = parseFloat(detail.IDEAL_SPEED);
+                document.getElementById('schedSpeed').innerText = isNaN(speed) ? "-" : speed.toFixed(3);
+            }
+        }
+        /* ================================================== */
+
+        window.onload = () => {
+            buildInitialMachineData();
+            refreshDashboardUI();
+            initChart();
+            autoCheckWO(); 
+            renderLogbookTable(); 
+            renderShoTable();
+            setInterval(liveUpdateDashboard, 2000); 
+        };
+    </script>
+</body>
+</html>
